@@ -241,6 +241,10 @@ def main():
         format="%d"
     )
     
+    # 만원 단위로 표시
+    savings_amount_man = savings_amount // 10000
+    st.sidebar.write(f"💰 **{savings_amount_man}만원** / 월")
+    
     # 선택된 상품의 수익 계산 표시 (사이드바)
     if 'selected_product' in st.session_state:
         selected = st.session_state.selected_product
@@ -287,7 +291,7 @@ def main():
         st.sidebar.write(f"📈 연 금리: {selected['최고금리']}")
         
         st.sidebar.write("---")
-        st.sidebar.write(f"**매월 적립**: {savings_amount:,}원")
+        st.sidebar.write(f"**매월 적립**: {savings_amount_man}만원")
         st.sidebar.write(f"**적립 기간**: {period} ({savings_period}개월)")
         st.sidebar.write(f"**총 납입원금**: {calc_result['total_principal']:,.0f}원")
         st.sidebar.success(f"**총 이자**: {calc_result['total_interest']:,.0f}원")
