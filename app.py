@@ -149,7 +149,7 @@ def main():
     with col2:
         region = st.selectbox("지역", ["전체", "서울", "부산", "대구", "인천", "광주"])
     
-    period = st.sidebar.selectbox("가입기간", ["전체", "3개월", "6개월", "1년", "2년", "3년"])
+    period = st.sidebar.selectbox("가입기간", ["전체", "3개월", "6개월", "1년", "2년", "3년", "4년", "5년"])
     
     if st.sidebar.button("📊 실시간 데이터 조회", type="primary"):
         st.session_state.refresh_data = True
