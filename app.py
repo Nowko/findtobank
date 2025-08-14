@@ -116,6 +116,27 @@ class FinanceAPI:
         
         return all_products if all_products['result']['baseList'] else None
 
+def calculate_after_tax_amount(principal, annual_rate, months=12, tax_rate=0.154):
+    """세후 수령액 계산"""
+    # 연 이자율을 월 이자율로 변환
+    monthly_rate = annual_rate / 100 / 12
+    
+    # 단리 계산 (대부분의 예적금이 단리)
+    interest = principal * (annual_rate / 100) * (months / 12)
+    
+    # 세금 계산 (이자소득세 15.4%)
+    tax = interest * tax_rate
+    
+    # 세후 수령액
+    after_tax_amount = principal + interest - tax
+    
+    return {
+        'total_interest': interest,
+        'tax': tax,
+        'after_tax_amount': after_tax_amount,
+        'net_interest': interest - tax
+    }
+
 def process_data(api_data):
     """API 데이터 처리"""
     if not api_data or not api_data.get('result'):
@@ -197,6 +218,17 @@ def main():
     elif btn_savings:
         bank_type_filter = "저축은행"
     # btn_all_banks 또는 아무것도 선택 안 함 = 전체
+    
+    # 저축 금액 입력
+    st.sidebar.subheader("💰 저축 금액")
+    savings_amount = st.sidebar.number_input(
+        "저축할 금액 (원)", 
+        min_value=1000, 
+        max_value=100000000, 
+        value=200000, 
+        step=10000,
+        format="%d"
+    )
     
     if st.sidebar.button("📊 실시간 데이터 조회", type="primary"):
         st.session_state.refresh_data = True
@@ -305,9 +337,51 @@ def main():
         # 정보 표시
         st.info(f"📄 {start_idx + 1} ~ {min(end_idx, total_items)}번째 상품 (전체 {total_items}개)")
         
-        # 테이블 표시
-        display_df = page_data[['금융기관', '상품명', '최고금리', '가입방법', '우대조건', '가입대상']]
-        st.dataframe(display_df, use_container_width=True, hide_index=True)
+        # 테이블 표시 (클릭 가능한 상품명으로 변경)
+        st.subheader("📋 상품 목록")
+        for idx, row in page_data.iterrows():
+            col1, col2, col3, col4 = st.columns([2, 2, 1, 2])
+            
+            with col1:
+                # 클릭 가능한 상품명 버튼
+                if st.button(f"🏛️ {row['금융기관']}", key=f"bank_{idx}", use_container_width=True):
+                    st.session_state.selected_product = row
+                st.caption(f"**{row['상품명']}**")
+            
+            with col2:
+                st.write(f"**금리**: {row['최고금리']}")
+                st.caption(f"가입방법: {row['가입방법']}")
+            
+            with col3:
+                st.metric("최고금리", row['최고금리'])
+            
+            with col4:
+                st.caption(f"가입대상: {row['가입대상']}")
+                if row['우대조건']:
+                    st.caption(f"우대조건: {row['우대조건'][:30]}...")
+            
+            st.divider()
+        
+        # 선택된 상품의 수익 계산 표시
+        if 'selected_product' in st.session_state:
+            selected = st.session_state.selected_product
+            st.subheader("💰 수익 계산")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                st.info(f"**선택 상품**: {selected['상품명']}")
+                st.info(f"**금융기관**: {selected['금융기관']}")
+                st.info(f"**연 금리**: {selected['최고금리']}")
+                st.info(f"**저축 금액**: {savings_amount:,}원")
+            
+            with col2:
+                # 1년 기준 계산
+                calc_result = calculate_after_tax_amount(savings_amount, selected['최고금리_숫자'], 12)
+                
+                st.success(f"**총 이자**: {calc_result['total_interest']:,.0f}원")
+                st.warning(f"**세금 (15.4%)**: {calc_result['tax']:,.0f}원")
+                st.success(f"**세후 이자**: {calc_result['net_interest']:,.0f}원")
+                st.metric("💎 **1년 후 세후 수령액**", f"{calc_result['after_tax_amount']:,.0f}원")
         
         # 페이지 버튼들
         if total_pages > 1:
