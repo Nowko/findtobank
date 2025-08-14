@@ -175,9 +175,7 @@ def process_product_data(api_data):
     result_df = pd.DataFrame({
         '금융기관': df_merged.get('kor_co_nm', ''),
         '상품명': df_merged.get('fin_prdt_nm', ''),
-        '기본금리': df_merged['기본금리'].apply(lambda x: f"{x:.2f}%" if pd.notnull(x) else "0.00%"),
         '최고금리': df_merged['최고금리'].apply(lambda x: f"{x:.2f}%" if pd.notnull(x) else "0.00%"),
-        '기본금리_숫자': df_merged['기본금리'],  # 정렬용
         '최고금리_숫자': df_merged['최고금리'],  # 정렬용
         '가입방법': df_merged.get('join_way', ''),
         '우대조건': df_merged.get('spcl_cnd', ''),
@@ -330,7 +328,7 @@ def main():
             filtered_df = filtered_df[filtered_df['금융기관'].isin(selected_banks)]
         
         # 표시용 데이터프레임 (숫자 컬럼과 ID 관련 컬럼 제거)
-        display_df = filtered_df[['금융기관', '상품명', '기본금리', '최고금리', '가입방법', '우대조건', '가입대상']]
+        display_df = filtered_df[['금융기관', '상품명', '최고금리', '가입방법', '우대조건', '가입대상']]
         
         # 스타일링된 테이블 표시
         st.dataframe(display_df, use_container_width=True, height=400)
@@ -363,7 +361,6 @@ def main():
                         </div>
                         <div style="text-align: right;">
                             <div class="rate-highlight">{row['최고금리']}</div>
-                            <small style="color: #7f8c8d;">기본: {row['기본금리']}</small>
                         </div>
                     </div>
                 </div>
@@ -410,24 +407,23 @@ def main():
             # Streamlit 내장 바차트 사용
             st.bar_chart(rate_distribution)
         
-        # 기본금리 vs 최고금리 상관관계
-        st.subheader("💹 기본금리 vs 최고금리 상관관계")
+        # 기본금리 vs 최고금리 상관관계 섹션 제거하고 간단한 통계로 대체
+        st.subheader("💹 금리 통계")
         
-        correlation = df_products['기본금리_숫자'].corr(df_products['최고금리_숫자'])
-        st.metric("상관계수", f"{correlation:.3f}", 
-                 "강한 양의 상관관계" if correlation > 0.7 else "보통 상관관계" if correlation > 0.3 else "약한 상관관계")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("📊 전체 상품 수", f"{len(df_products)}개")
+        with col2:
+            max_single_rate = df_products['최고금리_숫자'].max()
+            st.metric("🔥 단일 최고금리", f"{max_single_rate:.2f}%")
+        with col3:
+            high_rate_count = len(df_products[df_products['최고금리_숫자'] >= 5.0])
+            st.metric("⭐ 5% 이상 상품", f"{high_rate_count}개")
         
-        # 산점도 대신 테이블로 표시
-        scatter_df = df_products[['금융기관', '상품명', '기본금리', '최고금리']].copy()
-        scatter_df['금리차이'] = df_products['최고금리_숫자'] - df_products['기본금리_숫자']
-        scatter_df['금리차이'] = scatter_df['금리차이'].apply(lambda x: f"{x:.2f}%")
-        
-        # 금리차이 기준으로 정렬 (숫자값 기준)
-        diff_values = df_products['최고금리_숫자'] - df_products['기본금리_숫자']
-        scatter_df = scatter_df.iloc[diff_values.sort_values(ascending=False).index]
-        
-        st.subheader("🎯 금리 차이가 큰 상품 TOP 10")
-        st.dataframe(scatter_df.head(10), use_container_width=True)
+        # 최고금리 상위 상품 테이블
+        st.subheader("🎯 최고금리 상위 상품 TOP 10")
+        top_rate_df = df_products[['금융기관', '상품명', '최고금리']].head(10)
+        st.dataframe(top_rate_df, use_container_width=True)
     
     with tab4:
         st.subheader("🔍 상품 검색")
