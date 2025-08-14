@@ -97,21 +97,26 @@ class FinanceAPIService:
             params = {}
         
         params['auth'] = self.api_key
-        params['topFinGrpNo'] = '020000'  # 은행권
-        params['pageNo'] = 1
+        if 'topFinGrpNo' not in params:
+            params['topFinGrpNo'] = '020000'  # 기본값: 은행권
+        if 'pageNo' not in params:
+            params['pageNo'] = 1
         
         try:
             url = f"{self.base_url}/{endpoint}"
             
             response = self.session.get(url, params=params, timeout=30)
             
-            response.raise_for_status()
-            data = response.json()
-            
-            if data.get('result'):
-                return data
+            if response.status_code == 200:
+                data = response.json()
+                
+                if data.get('result'):
+                    return data
+                else:
+                    st.error(f"API 응답 오류: {data.get('error', '알 수 없는 오류')}")
+                    return None
             else:
-                st.error(f"API 응답 오류: {data}")
+                st.error(f"HTTP 오류: {response.status_code}")
                 return None
                 
         except requests.exceptions.Timeout:
@@ -122,6 +127,9 @@ class FinanceAPIService:
             return None
         except json.JSONDecodeError as e:
             st.error(f"📄 JSON 파싱 오류: {str(e)}")
+            return None
+        except Exception as e:
+            st.error(f"🔥 예상치 못한 오류: {str(e)}")
             return None
     
     def get_saving_products(self):
@@ -155,98 +163,105 @@ class FinanceAPIService:
 def process_product_data(api_data):
     """API 데이터를 처리하여 DataFrame으로 변환"""
     if not api_data or not api_data.get('result'):
+        st.warning("API 응답에서 result 데이터를 찾을 수 없습니다.")
         return pd.DataFrame()
     
     base_list = api_data['result'].get('baseList', [])
     option_list = api_data['result'].get('optionList', [])
     
     if not base_list:
+        st.warning("기본 상품 목록이 비어있습니다.")
         return pd.DataFrame()
     
-    # 기본 상품 정보 DataFrame 생성
-    df_base = pd.DataFrame(base_list)
-    
-    # 옵션 정보가 있으면 최고 금리와 기간 정보 계산
-    if option_list:
-        df_options = pd.DataFrame(option_list)
+    try:
+        # 기본 상품 정보 DataFrame 생성
+        df_base = pd.DataFrame(base_list)
         
-        # 상품별 최고 금리와 기간 정보 계산
-        product_info = df_options.groupby('fin_prdt_cd').agg({
-            'intr_rate': 'max',
-            'intr_rate2': 'max',
-            'save_trm': lambda x: list(set(x))  # 기간 정보 수집
-        }).reset_index()
+        # 옵션 정보가 있으면 최고 금리와 기간 정보 계산
+        if option_list:
+            df_options = pd.DataFrame(option_list)
+            
+            # 상품별 최고 금리와 기간 정보 계산
+            product_info = df_options.groupby('fin_prdt_cd').agg({
+                'intr_rate': 'max',
+                'intr_rate2': 'max',
+                'save_trm': lambda x: list(set(x)) if 'save_trm' in df_options.columns else ['12']
+            }).reset_index()
+            
+            # 기본 정보와 병합
+            df_merged = df_base.merge(product_info, on='fin_prdt_cd', how='left')
+        else:
+            df_merged = df_base.copy()
+            df_merged['intr_rate'] = 0
+            df_merged['intr_rate2'] = 0
+            df_merged['save_trm'] = [['12']] * len(df_merged)  # 기본값 1년
         
-        # 기본 정보와 병합
-        df_merged = df_base.merge(product_info, on='fin_prdt_cd', how='left')
-    else:
-        df_merged = df_base.copy()
-        df_merged['intr_rate'] = 0
-        df_merged['intr_rate2'] = 0
-        df_merged['save_trm'] = [['12']] * len(df_merged)  # 기본값 1년
-    
-    # 컬럼명 정리 및 데이터 타입 변환
-    df_merged['기본금리'] = pd.to_numeric(df_merged.get('intr_rate', 0), errors='coerce').fillna(0)
-    df_merged['최고금리'] = pd.to_numeric(df_merged.get('intr_rate2', 0), errors='coerce').fillna(0)
-    
-    # 기간 정보 처리 (개월 단위를 년/개월로 변환)
-    def convert_period(save_trm_list):
-        if not save_trm_list or not isinstance(save_trm_list, list):
-            return ['1년']
+        # 컬럼명 정리 및 데이터 타입 변환
+        df_merged['기본금리'] = pd.to_numeric(df_merged.get('intr_rate', 0), errors='coerce').fillna(0)
+        df_merged['최고금리'] = pd.to_numeric(df_merged.get('intr_rate2', 0), errors='coerce').fillna(0)
         
-        periods = []
-        for trm in save_trm_list:
-            try:
-                months = int(trm)
-                if months == 3:
-                    periods.append('3개월')
-                elif months == 6:
-                    periods.append('6개월')
-                elif months == 12:
-                    periods.append('1년')
-                elif months == 24:
-                    periods.append('2년')
-                elif months == 36:
-                    periods.append('3년')
-                elif months == 48:
-                    periods.append('4년')
-                elif months == 60:
-                    periods.append('5년')
-                else:
-                    # 기타 기간은 년/개월로 변환
-                    if months >= 12:
-                        years = months // 12
-                        remaining_months = months % 12
-                        if remaining_months == 0:
-                            periods.append(f'{years}년')
-                        else:
-                            periods.append(f'{years}년{remaining_months}개월')
+        # 기간 정보 처리 (개월 단위를 년/개월로 변환)
+        def convert_period(save_trm_list):
+            if not save_trm_list or not isinstance(save_trm_list, list):
+                return ['1년']
+            
+            periods = []
+            for trm in save_trm_list:
+                try:
+                    months = int(trm) if trm else 12
+                    if months == 3:
+                        periods.append('3개월')
+                    elif months == 6:
+                        periods.append('6개월')
+                    elif months == 12:
+                        periods.append('1년')
+                    elif months == 24:
+                        periods.append('2년')
+                    elif months == 36:
+                        periods.append('3년')
+                    elif months == 48:
+                        periods.append('4년')
+                    elif months == 60:
+                        periods.append('5년')
                     else:
-                        periods.append(f'{months}개월')
-            except:
-                continue
+                        # 기타 기간은 년/개월로 변환
+                        if months >= 12:
+                            years = months // 12
+                            remaining_months = months % 12
+                            if remaining_months == 0:
+                                periods.append(f'{years}년')
+                            else:
+                                periods.append(f'{years}년{remaining_months}개월')
+                        else:
+                            periods.append(f'{months}개월')
+                except:
+                    continue
+            
+            return periods if periods else ['1년']
         
-        return periods if periods else ['1년']
-    
-    df_merged['가입기간'] = df_merged['save_trm'].apply(convert_period)
-    
-    # 필요한 컬럼만 선택
-    result_df = pd.DataFrame({
-        '금융기관': df_merged.get('kor_co_nm', ''),
-        '상품명': df_merged.get('fin_prdt_nm', ''),
-        '최고금리': df_merged['최고금리'].apply(lambda x: f"{x:.2f}%" if pd.notnull(x) else "0.00%"),
-        '최고금리_숫자': df_merged['최고금리'],  # 정렬용
-        '가입방법': df_merged.get('join_way', ''),
-        '우대조건': df_merged.get('spcl_cnd', ''),
-        '가입대상': df_merged.get('join_member', ''),
-        '가입기간': df_merged['가입기간']  # 기간 정보 추가
-    })
-    
-    # 최고금리 기준으로 정렬 (숫자 컬럼 사용)
-    result_df = result_df.sort_values('최고금리_숫자', ascending=False).reset_index(drop=True)
-    result_df.index = result_df.index + 1
-    
-    return result_df
+        df_merged['가입기간'] = df_merged.get('save_trm', [['12']] * len(df_merged)).apply(convert_period)
+        
+        # 필요한 컬럼만 선택
+        result_df = pd.DataFrame({
+            '금융기관': df_merged.get('kor_co_nm', '알 수 없음'),
+            '상품명': df_merged.get('fin_prdt_nm', '알 수 없음'),
+            '최고금리': df_merged['최고금리'].apply(lambda x: f"{x:.2f}%" if pd.notnull(x) else "0.00%"),
+            '최고금리_숫자': df_merged['최고금리'],  # 정렬용
+            '가입방법': df_merged.get('join_way', '정보없음'),
+            '우대조건': df_merged.get('spcl_cnd', '정보없음'),
+            '가입대상': df_merged.get('join_member', '정보없음'),
+            '가입기간': df_merged['가입기간']  # 기간 정보 추가
+        })
+        
+        # 최고금리 기준으로 정렬 (숫자 컬럼 사용)
+        result_df = result_df.sort_values('최고금리_숫자', ascending=False).reset_index(drop=True)
+        result_df.index = result_df.index + 1
+        
+        return result_df
+        
+    except Exception as e:
+        st.error(f"데이터 처리 중 오류 발생: {str(e)}")
+        return pd.DataFrame()
 
 # 메인 앱
 def main():
@@ -293,40 +308,67 @@ def main():
         with st.spinner(f"🔄 {product_type} 상품 데이터를 가져오는 중..."):
             progress_bar = st.progress(0)
             
-            # API 호출
-            progress_bar.progress(25)
-            if product_type == "적금":
-                api_data = finance_api.get_saving_products()
-            else:
-                api_data = finance_api.get_deposit_products()
-            
-            progress_bar.progress(50)
-            
-            if api_data:
-                st.markdown('<div class="api-status api-success">✅ API 연결 성공! 실시간 데이터를 가져왔습니다.</div>', 
-                           unsafe_allow_html=True)
+            try:
+                # API 호출
+                progress_bar.progress(25)
+                if product_type == "적금":
+                    api_data = finance_api.get_saving_products()
+                    progress_bar.progress(50)
+                else:  # 예금
+                    api_data = finance_api.get_deposit_products()
+                    progress_bar.progress(50)
                 
-                # 데이터 처리
-                progress_bar.progress(75)
-                df_products = process_product_data(api_data)
-                st.session_state.df_products = df_products
-                st.session_state.last_update = datetime.now()
+                if api_data:
+                    st.markdown('<div class="api-status api-success">✅ API 연결 성공! 실시간 데이터를 가져왔습니다.</div>', 
+                               unsafe_allow_html=True)
+                    
+                    # 데이터 처리
+                    progress_bar.progress(75)
+                    df_products = process_product_data(api_data)
+                    
+                    if not df_products.empty:
+                        st.session_state.df_products = df_products
+                        st.session_state.last_update = datetime.now()
+                        st.session_state.product_type = product_type
+                        
+                        progress_bar.progress(100)
+                        time.sleep(0.5)
+                        progress_bar.empty()
+                        st.success(f"✅ {product_type} {len(df_products)}개 상품 데이터 로드 완료!")
+                    else:
+                        st.warning(f"⚠️ {product_type} 상품 데이터가 비어있습니다.")
+                        progress_bar.empty()
+                        return
                 
-                progress_bar.progress(100)
-                time.sleep(0.5)
+                else:
+                    st.markdown('<div class="api-status api-error">❌ API 호출 실패. 잠시 후 다시 시도해주세요.</div>', 
+                               unsafe_allow_html=True)
+                    progress_bar.empty()
+                    return
+                    
+            except Exception as e:
                 progress_bar.empty()
-                
-            else:
-                st.markdown('<div class="api-status api-error">❌ API 호출 실패. 잠시 후 다시 시도해주세요.</div>', 
-                           unsafe_allow_html=True)
+                st.error(f"🔥 데이터 처리 중 오류 발생: {str(e)}")
+                st.info("💡 문제가 지속되면 페이지를 새로고침하거나 잠시 후 다시 시도해주세요.")
                 return
     
     # 세션에서 데이터 가져오기
     df_products = st.session_state.get('df_products', pd.DataFrame())
     last_update = st.session_state.get('last_update', datetime.now())
+    current_product_type = st.session_state.get('product_type', product_type)
+    
+    # 상품 유형이 변경된 경우 데이터 새로 로드
+    if current_product_type != product_type:
+        st.session_state.refresh_data = True
+        st.rerun()
     
     if df_products.empty:
         st.warning("⚠️ 표시할 데이터가 없습니다. '실시간 데이터 조회' 버튼을 클릭해주세요.")
+        
+        # 자동으로 데이터 로드 시도
+        if st.button("🔄 자동 데이터 로드", type="primary"):
+            st.session_state.refresh_data = True
+            st.rerun()
         return
     
     # 메트릭 표시
@@ -602,8 +644,117 @@ def main():
         else:
             display_df = filtered_df[base_columns].copy()
         
-        # 스타일링된 테이블 표시
-        st.dataframe(display_df, use_container_width=True, height=400)
+        # 스타일링된 테이블 표시 (페이지네이션과 고정 높이 적용)
+        st.subheader("📄 상품 목록")
+        
+        # 페이지네이션 설정
+        items_per_page = 10
+        total_pages = (len(display_df) + items_per_page - 1) // items_per_page
+        
+        if total_pages > 1:
+            col1, col2, col3 = st.columns([1, 2, 1])
+            with col2:
+                current_page = st.selectbox(
+                    f"페이지 선택 (총 {total_pages}페이지, {len(display_df)}개 상품)",
+                    range(1, total_pages + 1),
+                    key="page_selector"
+                )
+        else:
+            current_page = 1
+        
+        # 현재 페이지 데이터 추출
+        start_idx = (current_page - 1) * items_per_page
+        end_idx = start_idx + items_per_page
+        page_df = display_df.iloc[start_idx:end_idx]
+        
+        # 스크롤 가능한 컨테이너로 표시
+        st.markdown("""
+        <style>
+        .scrollable-table {
+            max-height: 600px;
+            overflow-y: auto;
+            border: 2px solid #e1e5e9;
+            border-radius: 10px;
+            padding: 10px;
+            background-color: white;
+        }
+        
+        .scrollable-table::-webkit-scrollbar {
+            width: 12px;
+        }
+        
+        .scrollable-table::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        
+        .scrollable-table::-webkit-scrollbar-thumb {
+            background: #667eea;
+            border-radius: 10px;
+        }
+        
+        .scrollable-table::-webkit-scrollbar-thumb:hover {
+            background: #5a6fd8;
+        }
+        
+        .pagination-info {
+            text-align: center;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-weight: 500;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+        
+        # 페이지네이션 정보 표시
+        st.markdown(f"""
+        <div class="pagination-info">
+            📄 {start_idx + 1} ~ {min(end_idx, len(display_df))}번째 상품 표시 중 (전체 {len(display_df)}개)
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # 스크롤바가 보이는 데이터프레임
+        with st.container():
+            st.dataframe(
+                page_df, 
+                use_container_width=True, 
+                height=400,  # 고정 높이로 스크롤바 표시
+                hide_index=True
+            )
+        
+        # 페이지 네비게이션 버튼
+        if total_pages > 1:
+            col1, col2, col3, col4, col5 = st.columns(5)
+            
+            with col1:
+                if current_page > 1:
+                    if st.button("⬅️ 이전", key="prev_page"):
+                        st.session_state.page_selector = current_page - 1
+                        st.rerun()
+            
+            with col2:
+                if current_page > 2:
+                    if st.button("1️⃣ 첫 페이지", key="first_page"):
+                        st.session_state.page_selector = 1
+                        st.rerun()
+            
+            with col3:
+                st.markdown(f"<div style='text-align: center; padding: 10px; font-weight: bold;'>{current_page} / {total_pages}</div>", 
+                           unsafe_allow_html=True)
+            
+            with col4:
+                if current_page < total_pages - 1:
+                    if st.button("🔚 마지막", key="last_page"):
+                        st.session_state.page_selector = total_pages
+                        st.rerun()
+            
+            with col5:
+                if current_page < total_pages:
+                    if st.button("다음 ➡️", key="next_page"):
+                        st.session_state.page_selector = current_page + 1
+                        st.rerun()
         
         # 다운로드 버튼
         csv = display_df.to_csv(index=False, encoding='utf-8-sig')
