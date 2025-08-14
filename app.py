@@ -312,30 +312,18 @@ def main():
         # 필터링 옵션
         st.subheader("🏛️ 금융기관 유형별 보기")
         
-        # 금융기관 유형별 버튼
-        col1, col2, col3, col4, col5 = st.columns(5)
+        # 금융기관 유형별 버튼 (전체와 은행만)
+        col1, col2 = st.columns(2)
         
         with col1:
             btn_all = st.button("🏦 전체", use_container_width=True)
         with col2:
             btn_bank = st.button("🏛️ 은행", use_container_width=True)
-        with col3:
-            btn_savings = st.button("🏪 저축은행", use_container_width=True)
-        with col4:
-            btn_credit = st.button("🤝 신협", use_container_width=True)
-        with col5:
-            btn_finance = st.button("💼 종금사", use_container_width=True)
         
-        # 금융기관 유형 매핑 (실제 API 응답에서 나오는 기관명 기준)
+        # 금융기관 유형 매핑
         bank_filter = None
         if btn_bank:
             bank_filter = "은행"
-        elif btn_savings:
-            bank_filter = "저축은행"
-        elif btn_credit:
-            bank_filter = "신협"
-        elif btn_finance:
-            bank_filter = "종금사"
         
         # 다중 선택 필터 (기존)
         selected_banks = st.multiselect(
@@ -348,21 +336,11 @@ def main():
         # 필터 적용
         filtered_df = df_products.copy()
         
-        # 기관 유형별 필터링
-        if bank_filter:
-            if bank_filter == "은행":
-                # 은행: "은행"이 포함된 기관
-                filtered_df = filtered_df[filtered_df['금융기관'].str.contains('은행', na=False) & 
-                                        ~filtered_df['금융기관'].str.contains('저축은행', na=False)]
-            elif bank_filter == "저축은행":
-                # 저축은행: "저축은행"이 포함된 기관
-                filtered_df = filtered_df[filtered_df['금융기관'].str.contains('저축은행', na=False)]
-            elif bank_filter == "신협":
-                # 신협: "신협" 또는 "신용협동조합"이 포함된 기관
-                filtered_df = filtered_df[filtered_df['금융기관'].str.contains('신협|신용협동조합', na=False)]
-            elif bank_filter == "종금사":
-                # 종금사: "종합금융", "증권", "투자" 등이 포함된 기관
-                filtered_df = filtered_df[filtered_df['금융기관'].str.contains('종합금융|증권|투자|캐피탈', na=False)]
+        # 기관 유형별 필터링 (은행만)
+        if bank_filter == "은행":
+            # 은행: "은행"이 포함된 기관 (저축은행 제외)
+            filtered_df = filtered_df[filtered_df['금융기관'].str.contains('은행', na=False) & 
+                                    ~filtered_df['금융기관'].str.contains('저축은행', na=False)]
         
         # 특정 기관 선택 필터링
         if selected_banks:
