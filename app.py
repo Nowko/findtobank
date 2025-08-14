@@ -230,6 +230,24 @@ def main():
         format="%d"
     )
     
+    # 선택된 상품의 수익 계산 표시 (사이드바)
+    if 'selected_product' in st.session_state:
+        selected = st.session_state.selected_product
+        st.sidebar.subheader("💰 수익 계산")
+        
+        st.sidebar.info(f"**선택 상품**")
+        st.sidebar.write(f"🏛️ {selected['금융기관']}")
+        st.sidebar.write(f"📊 {selected['상품명']}")
+        st.sidebar.write(f"📈 연 금리: {selected['최고금리']}")
+        
+        # 1년 기준 계산
+        calc_result = calculate_after_tax_amount(savings_amount, selected['최고금리_숫자'], 12)
+        
+        st.sidebar.success(f"**총 이자**: {calc_result['total_interest']:,.0f}원")
+        st.sidebar.warning(f"**세금 (15.4%)**: {calc_result['tax']:,.0f}원")
+        st.sidebar.success(f"**세후 이자**: {calc_result['net_interest']:,.0f}원")
+        st.sidebar.metric("💎 **1년 후 세후 수령액**", f"{calc_result['after_tax_amount']:,.0f}원")
+    
     if st.sidebar.button("📊 실시간 데이터 조회", type="primary"):
         st.session_state.refresh_data = True
     
@@ -361,27 +379,6 @@ def main():
                     st.caption(f"우대조건: {row['우대조건'][:30]}...")
             
             st.divider()
-        
-        # 선택된 상품의 수익 계산 표시
-        if 'selected_product' in st.session_state:
-            selected = st.session_state.selected_product
-            st.subheader("💰 수익 계산")
-            
-            col1, col2 = st.columns(2)
-            with col1:
-                st.info(f"**선택 상품**: {selected['상품명']}")
-                st.info(f"**금융기관**: {selected['금융기관']}")
-                st.info(f"**연 금리**: {selected['최고금리']}")
-                st.info(f"**저축 금액**: {savings_amount:,}원")
-            
-            with col2:
-                # 1년 기준 계산
-                calc_result = calculate_after_tax_amount(savings_amount, selected['최고금리_숫자'], 12)
-                
-                st.success(f"**총 이자**: {calc_result['total_interest']:,.0f}원")
-                st.warning(f"**세금 (15.4%)**: {calc_result['tax']:,.0f}원")
-                st.success(f"**세후 이자**: {calc_result['net_interest']:,.0f}원")
-                st.metric("💎 **1년 후 세후 수령액**", f"{calc_result['after_tax_amount']:,.0f}원")
         
         # 페이지 버튼들
         if total_pages > 1:
