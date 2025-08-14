@@ -102,11 +102,8 @@ class FinanceAPIService:
         
         try:
             url = f"{self.base_url}/{endpoint}"
-            st.write(f"🔄 API 요청: {url}")
-            st.write(f"📋 파라미터: {params}")
             
             response = self.session.get(url, params=params, timeout=30)
-            st.write(f"📡 응답 상태: {response.status_code}")
             
             response.raise_for_status()
             data = response.json()
