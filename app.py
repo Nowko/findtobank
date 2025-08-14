@@ -1,13 +1,17 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
+import requests
+import json
 from datetime import datetime
 import time
+import plotly.express as px
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
 # 페이지 설정
 st.set_page_config(
-    page_title="금융상품 비교센터",
-    page_icon="📊",
+    page_title="실제 금융상품 비교센터",
+    page_icon="🏦",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -18,267 +22,440 @@ st.markdown("""
     .main-header {
         text-align: center;
         padding: 2rem 0;
-        background: linear-gradient(90deg, #667eea, #764ba2);
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
-        border-radius: 10px;
+        border-radius: 15px;
         margin-bottom: 2rem;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
     }
     
-    .metric-card {
-        background: white;
-        padding: 1rem;
+    .api-status {
+        padding: 15px;
         border-radius: 10px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        border-left: 4px solid #667eea;
+        margin: 15px 0;
+        border-left: 5px solid;
     }
     
-    .best-rate {
+    .api-success {
+        background-color: #d4edda;
+        color: #155724;
+        border-left-color: #28a745;
+    }
+    
+    .api-error {
+        background-color: #f8d7da;
+        color: #721c24;
+        border-left-color: #dc3545;
+    }
+    
+    .metric-container {
+        background: white;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        margin: 10px 0;
+    }
+    
+    .rate-highlight {
+        font-size: 2rem;
+        font-weight: bold;
         color: #e74c3c;
-        font-weight: bold;
-        font-size: 1.2em;
     }
     
-    .bank-name {
-        color: #2c3e50;
-        font-weight: 600;
+    .bank-badge {
+        background: #3498db;
+        color: white;
+        padding: 5px 10px;
+        border-radius: 15px;
+        font-size: 0.8rem;
+        display: inline-block;
+        margin: 2px;
     }
     
-    .amount {
-        color: #27ae60;
-        font-weight: bold;
+    .product-card {
+        border: 1px solid #e0e0e0;
+        border-radius: 10px;
+        padding: 15px;
+        margin: 10px 0;
+        transition: transform 0.2s;
     }
     
-    .stSelectbox > label {
-        font-weight: 600;
-        color: #2c3e50;
-    }
-    
-    .highlight-row {
-        background-color: #f8f9ff;
+    .product-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
     }
 </style>
 """, unsafe_allow_html=True)
 
-# 헤더
-st.markdown("""
-<div class="main-header">
-    <h1>📊 금융상품 비교센터</h1>
-    <p>전국 금융기관의 최고금리 적금/예금 상품을 한눈에 비교하세요</p>
-</div>
-""", unsafe_allow_html=True)
+# 금융감독원 API 클래스 (개선된 버전)
+class FinanceAPIService:
+    def __init__(self, api_key):
+        self.api_key = api_key
+        self.base_url = "http://finlife.fss.or.kr/finlifeapi"
+        self.session = requests.Session()
+        
+    def _make_request(self, endpoint, params=None):
+        """API 요청 공통 함수"""
+        if params is None:
+            params = {}
+        
+        params['auth'] = self.api_key
+        params['topFinGrpNo'] = '020000'  # 은행권
+        params['pageNo'] = 1
+        
+        try:
+            url = f"{self.base_url}/{endpoint}"
+            st.write(f"🔄 API 요청: {url}")
+            st.write(f"📋 파라미터: {params}")
+            
+            response = self.session.get(url, params=params, timeout=30)
+            st.write(f"📡 응답 상태: {response.status_code}")
+            
+            response.raise_for_status()
+            data = response.json()
+            
+            if data.get('result'):
+                return data
+            else:
+                st.error(f"API 응답 오류: {data}")
+                return None
+                
+        except requests.exceptions.Timeout:
+            st.error("⏰ API 요청 시간 초과 (30초)")
+            return None
+        except requests.exceptions.RequestException as e:
+            st.error(f"🚫 API 요청 실패: {str(e)}")
+            return None
+        except json.JSONDecodeError as e:
+            st.error(f"📄 JSON 파싱 오류: {str(e)}")
+            return None
+    
+    def get_saving_products(self):
+        """적금 상품 조회"""
+        return self._make_request('savingProductsSearch.json')
+    
+    def get_deposit_products(self):
+        """예금 상품 조회"""
+        return self._make_request('depositProductsSearch.json')
+    
+    def get_company_list(self):
+        """금융회사 목록 조회"""
+        return self._make_request('companySearch.json')
 
-# 샘플 데이터 생성 (실제 모네타 데이터 기반)
-@st.cache_data
-def load_sample_data():
-    data = {
-        '순위': list(range(1, 16)),
-        '금융기관명': [
-            '우리종합금융', '우리종합금융', '서울)애큐온저축은행', 
-            '서울)애큐온저축은행', '대구)엠에스저축은행', 
-            '우리은행', '청원신용협동조합(청원신협)', '계산신협', 
-            '서울서부신용협동조합', '동암신용협동조합', '장위신용협동조합',
-            '새서울신용협동조합', '신우신협', '의정부신협', '경남)조흥저축은행'
-        ],
-        '상품명': [
-            '최고 연 10% 하이 정기적금(개인, 세전, 우대 포함)', 
-            '최고 연 6.60% The조은 정기적금(개인, 세전, 우대 포함)', 
-            '처음만난적금', '처음만난적금', '아이사랑 정기적금', 
-            '우리 Magic 적금 by 현대카드', '정기적금', '유니온정기적금',
-            '자동이체 적금 4.5% - 창구전용', 'e-파란적금', 
-            'e-파란적금 기본 4.3%+우대 0.5%=4.8%',
-            '[레이디포유적금 최대 4.3%]', '유니온정기적금 최대 4.44%(모바일전용)',
-            '★정기 적금 4.1% [의정부신협]★', '정기적금'
-        ],
-        '세전금리(%)': [10.00, 6.60, 6.50, 6.50, 6.00, 5.70, 4.60, 4.50, 4.50, 4.45, 4.30, 4.30, 4.20, 4.20, 4.80],
-        '세후수령액': [12549900, 12370352, 12364633, 12357435, 12329940, 
-                    12318969, 12294814, 12288405, 12288405, 12285200,
-                    12275587, 12275587, 12269178, 12269178, 12263952],
-        '기관유형': ['종금사', '종금사', '저축은행', '저축은행', '저축은행', 
-                  '은행', '신협', '신협', '신협', '신협', '신협', '신협', '신협', '신협', '저축은행'],
-        '상품유형': ['적금'] * 15,  # 모든 상품이 적금
-        '기간': ['1년'] * 15,  # 모든 상품이 1년
-        '특징': [
-            '최고금리,우대조건', '신규상품', '복리적용', '장기우대', 
-            '자녀적금', '카드연계', '지역우대', '모바일전용', 
-            '자동이체', '인터넷전용', '우대금리', '여성전용',
-            '모바일전용', '지역신협', '안정성'
-        ]
-    }
-    return pd.DataFrame(data)
+def process_product_data(api_data):
+    """API 데이터를 처리하여 DataFrame으로 변환"""
+    if not api_data or not api_data.get('result'):
+        return pd.DataFrame()
+    
+    base_list = api_data['result'].get('baseList', [])
+    option_list = api_data['result'].get('optionList', [])
+    
+    if not base_list:
+        return pd.DataFrame()
+    
+    # 기본 상품 정보 DataFrame 생성
+    df_base = pd.DataFrame(base_list)
+    
+    # 옵션 정보가 있으면 최고 금리 계산
+    if option_list:
+        df_options = pd.DataFrame(option_list)
+        
+        # 상품별 최고 금리 계산
+        max_rates = df_options.groupby('fin_prdt_cd').agg({
+            'intr_rate': 'max',
+            'intr_rate2': 'max'
+        }).reset_index()
+        
+        # 기본 정보와 병합
+        df_merged = df_base.merge(max_rates, on='fin_prdt_cd', how='left')
+    else:
+        df_merged = df_base.copy()
+        df_merged['intr_rate'] = 0
+        df_merged['intr_rate2'] = 0
+    
+    # 컬럼명 정리 및 데이터 타입 변환
+    df_merged['기본금리'] = pd.to_numeric(df_merged.get('intr_rate', 0), errors='coerce').fillna(0)
+    df_merged['최고금리'] = pd.to_numeric(df_merged.get('intr_rate2', 0), errors='coerce').fillna(0)
+    
+    # 필요한 컬럼만 선택
+    result_df = pd.DataFrame({
+        '금융기관': df_merged.get('kor_co_nm', ''),
+        '상품명': df_merged.get('fin_prdt_nm', ''),
+        '기본금리': df_merged['기본금리'],
+        '최고금리': df_merged['최고금리'],
+        '가입방법': df_merged.get('join_way', ''),
+        '우대조건': df_merged.get('spcl_cnd', ''),
+        '가입대상': df_merged.get('join_member', ''),
+        '상품ID': df_merged.get('fin_prdt_cd', ''),
+        '기관코드': df_merged.get('fin_co_no', '')
+    })
+    
+    # 최고금리 기준으로 정렬
+    result_df = result_df.sort_values('최고금리', ascending=False).reset_index(drop=True)
+    result_df.index = result_df.index + 1
+    
+    return result_df
 
-# 사이드바 필터
-st.sidebar.header("🔍 상품 검색 필터")
-
-# 기본값을 "전체"에서 실제 데이터에 맞게 변경
-product_type = st.sidebar.selectbox(
-    "상품유형",
-    ["전체", "적금", "예금", "자유적립식"],
-    index=1  # 기본값을 "적금"으로 설정
-)
-
-period = st.sidebar.selectbox(
-    "기간",
-    ["전체", "3개월", "6개월", "1년", "2년", "3년"],
-    index=3  # 기본값을 "1년"으로 설정
-)
-
-bank_type = st.sidebar.selectbox(
-    "금융기관 유형",
-    ["전체", "은행", "저축은행", "신협", "종금사"]
-)
-
-amount = st.sidebar.number_input(
-    "저축금액 (원)",
-    min_value=10000,
-    max_value=100000000,
-    value=100000,
-    step=10000,
-    format="%d"
-)
-
-# 실시간 업데이트 버튼
-if st.sidebar.button("🔄 실시간 업데이트", type="primary"):
-    with st.spinner("최신 금리 정보를 불러오는 중..."):
-        time.sleep(2)  # 로딩 시뮬레이션
-        st.sidebar.success("✅ 업데이트 완료!")
+# 메인 앱
+def main():
+    # 헤더
+    st.markdown("""
+    <div class="main-header">
+        <h1>🏦 실제 금융상품 비교센터</h1>
+        <p>금융감독원 공식 API 연동 - 실시간 금융상품 정보</p>
+        <p style="font-size: 0.9rem; opacity: 0.8;">API Key: 9eef***********32af (인증 완료)</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # API 키 설정
+    api_key = "9eef9d0d97316bd23093d3317c1732af"
+    
+    # 사이드바
+    st.sidebar.header("🔍 상품 검색")
+    
+    product_type = st.sidebar.selectbox(
+        "상품 유형",
+        ["적금", "예금"],
+        help="조회할 금융상품 유형을 선택하세요"
+    )
+    
+    # 실시간 데이터 조회 버튼
+    if st.sidebar.button("📊 실시간 데이터 조회", type="primary", use_container_width=True):
+        st.session_state.refresh_data = True
+    
+    # 자동 새로고침 설정
+    auto_refresh = st.sidebar.checkbox("🔄 자동 새로고침 (60초)", value=False)
+    
+    if auto_refresh:
+        st.sidebar.info("60초마다 자동으로 데이터를 업데이트합니다.")
+        time.sleep(60)
         st.rerun()
-
-# 데이터 로드 및 필터링
-df = load_sample_data()
-
-# 필터 적용 - 더 관대한 조건으로 수정
-filtered_df = df.copy()
-
-# 기관유형 필터 (선택된 경우에만)
-if bank_type != "전체":
-    filtered_df = filtered_df[filtered_df['기관유형'] == bank_type]
-
-# 기간 필터 (선택된 경우에만) 
-if period != "전체":
-    filtered_df = filtered_df[filtered_df['기간'] == period]
-
-# 상품유형 필터 (선택된 경우에만)
-if product_type != "전체":
-    filtered_df = filtered_df[filtered_df['상품유형'] == product_type]
-
-# 데이터가 없을 때 전체 데이터 표시
-if len(filtered_df) == 0:
-    st.warning("⚠️ 선택한 조건에 맞는 상품이 없어 전체 상품을 표시합니다.")
-    filtered_df = df.copy()
-
-# 메인 컨텐츠
-col1, col2, col3, col4 = st.columns(4)
-
-with col1:
-    st.metric(
-        label="총 상품 수",
-        value=f"{len(filtered_df)}개",
-        delta=f"전체 {len(df)}개 중"
-    )
-
-with col2:
-    if len(filtered_df) > 0:
-        max_rate = filtered_df['세전금리(%)'].max()
+    
+    # API 서비스 초기화
+    finance_api = FinanceAPIService(api_key)
+    
+    # 데이터 조회 실행
+    if st.session_state.get('refresh_data', False) or 'df_products' not in st.session_state:
+        st.session_state.refresh_data = False
+        
+        with st.spinner(f"🔄 {product_type} 상품 데이터를 가져오는 중..."):
+            progress_bar = st.progress(0)
+            
+            # API 호출
+            progress_bar.progress(25)
+            if product_type == "적금":
+                api_data = finance_api.get_saving_products()
+            else:
+                api_data = finance_api.get_deposit_products()
+            
+            progress_bar.progress(50)
+            
+            if api_data:
+                st.markdown('<div class="api-status api-success">✅ API 연결 성공! 실시간 데이터를 가져왔습니다.</div>', 
+                           unsafe_allow_html=True)
+                
+                # 데이터 처리
+                progress_bar.progress(75)
+                df_products = process_product_data(api_data)
+                st.session_state.df_products = df_products
+                st.session_state.last_update = datetime.now()
+                
+                progress_bar.progress(100)
+                time.sleep(0.5)
+                progress_bar.empty()
+                
+            else:
+                st.markdown('<div class="api-status api-error">❌ API 호출 실패. 잠시 후 다시 시도해주세요.</div>', 
+                           unsafe_allow_html=True)
+                return
+    
+    # 세션에서 데이터 가져오기
+    df_products = st.session_state.get('df_products', pd.DataFrame())
+    last_update = st.session_state.get('last_update', datetime.now())
+    
+    if df_products.empty:
+        st.warning("⚠️ 표시할 데이터가 없습니다. '실시간 데이터 조회' 버튼을 클릭해주세요.")
+        return
+    
+    # 메트릭 표시
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
         st.metric(
-            label="최고 금리",
-            value=f"{max_rate}%",
+            label="📊 총 상품 수",
+            value=f"{len(df_products)}개",
+            delta=f"업데이트: {last_update.strftime('%H:%M')}"
+        )
+    
+    with col2:
+        max_rate = df_products['최고금리'].max()
+        st.metric(
+            label="🔥 최고 금리",
+            value=f"{max_rate:.2f}%",
             delta="세전 기준"
         )
-
-with col3:
-    if len(filtered_df) > 0:
-        avg_rate = filtered_df['세전금리(%)'].mean()
+    
+    with col3:
+        avg_rate = df_products['최고금리'].mean()
         st.metric(
-            label="평균 금리",
+            label="📈 평균 금리",
             value=f"{avg_rate:.2f}%",
-            delta="세전 기준"
+            delta=f"{len(df_products[df_products['최고금리'] >= 4])}개 상품이 4% 이상"
         )
-
-with col4:
-    st.metric(
-        label="최종 업데이트",
-        value=datetime.now().strftime("%H:%M"),
-        delta="실시간"
-    )
-
-# 검색 결과 테이블
-st.subheader(f"📋 검색결과: {len(filtered_df)}개")
-
-if len(filtered_df) > 0:
-    # 상품 선택을 위한 체크박스 컬럼 추가
-    selection_df = filtered_df.copy()
-    selection_df.insert(0, '선택', False)
     
-    # 데이터 편집 가능한 테이블
-    edited_df = st.data_editor(
-        selection_df,
-        column_config={
-            "선택": st.column_config.CheckboxColumn(
-                "비교선택",
-                help="비교할 상품을 선택하세요 (최대 5개)",
-                default=False,
-            ),
-            "세전금리(%)": st.column_config.NumberColumn(
-                "세전금리(%)",
-                format="%.2f%%"
-            ),
-            "세후수령액": st.column_config.NumberColumn(
-                "세후수령액",
-                format="%d원"
+    with col4:
+        bank_count = df_products['금융기관'].nunique()
+        st.metric(
+            label="🏛️ 참여 기관",
+            value=f"{bank_count}개",
+            delta="금융기관"
+        )
+    
+    # 탭으로 구분된 뷰
+    tab1, tab2, tab3, tab4 = st.tabs(["📋 전체 상품", "🏆 TOP 10", "📊 분석 차트", "🔍 상품 검색"])
+    
+    with tab1:
+        st.subheader(f"📋 전체 {product_type} 상품 목록")
+        
+        # 필터링 옵션
+        col1, col2 = st.columns(2)
+        with col1:
+            min_rate = st.slider("최소 금리 (%)", 0.0, 10.0, 0.0, 0.1)
+        with col2:
+            selected_banks = st.multiselect(
+                "금융기관 필터",
+                options=df_products['금융기관'].unique(),
+                default=[]
             )
-        },
-        disabled=["순위", "금융기관명", "상품명", "세전금리(%)", "세후수령액", "기관유형", "기간", "특징"],
-        hide_index=True,
-        use_container_width=True
-    )
-    
-    # 선택된 상품들 확인
-    selected_products = edited_df[edited_df['선택'] == True]
-    
-    if len(selected_products) > 0:
-        st.subheader("📊 선택한 상품 비교")
         
-        if len(selected_products) > 5:
-            st.warning("⚠️ 최대 5개 상품까지만 비교할 수 있습니다.")
-            selected_products = selected_products.head(5)
+        # 필터 적용
+        filtered_df = df_products.copy()
+        if min_rate > 0:
+            filtered_df = filtered_df[filtered_df['최고금리'] >= min_rate]
+        if selected_banks:
+            filtered_df = filtered_df[filtered_df['금융기관'].isin(selected_banks)]
         
-        # 비교 차트
+        # 스타일링된 테이블 표시
+        def highlight_top_rates(val):
+            if isinstance(val, (int, float)) and val >= 5.0:
+                return 'background-color: #ffebee; font-weight: bold; color: #c62828'
+            elif isinstance(val, (int, float)) and val >= 3.0:
+                return 'background-color: #fff3e0; font-weight: bold; color: #ef6c00'
+            return ''
+        
+        styled_df = filtered_df.style.applymap(highlight_top_rates, subset=['최고금리'])
+        st.dataframe(styled_df, use_container_width=True, height=400)
+        
+        # 다운로드 버튼
+        csv = filtered_df.to_csv(index=False, encoding='utf-8-sig')
+        st.download_button(
+            label="📥 CSV 다운로드",
+            data=csv,
+            file_name=f'{product_type}_products_{datetime.now().strftime("%Y%m%d_%H%M")}.csv',
+            mime='text/csv'
+        )
+    
+    with tab2:
+        st.subheader("🏆 TOP 10 고금리 상품")
+        
+        top10 = df_products.head(10)
+        
+        for idx, row in top10.iterrows():
+            with st.container():
+                st.markdown(f"""
+                <div class="product-card">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <h4 style="margin: 0; color: #2c3e50;">
+                                {idx}위. {row['금융기관']}
+                            </h4>
+                            <p style="margin: 5px 0; color: #7f8c8d;">{row['상품명']}</p>
+                            <small style="color: #95a5a6;">{row['가입방법']} | {row['가입대상']}</small>
+                        </div>
+                        <div style="text-align: right;">
+                            <div class="rate-highlight">{row['최고금리']:.2f}%</div>
+                            <small style="color: #7f8c8d;">기본: {row['기본금리']:.2f}%</small>
+                        </div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+    
+    with tab3:
+        st.subheader("📊 금리 분석 차트")
+        
         col1, col2 = st.columns(2)
         
         with col1:
-            st.subheader("금리 비교")
-            chart_data = selected_products[['금융기관명', '세전금리(%)']].set_index('금융기관명')
-            st.bar_chart(chart_data)
+            # 금융기관별 최고금리 비교
+            bank_max_rates = df_products.groupby('금융기관')['최고금리'].max().sort_values(ascending=False).head(10)
+            
+            fig1 = px.bar(
+                x=bank_max_rates.values,
+                y=bank_max_rates.index,
+                orientation='h',
+                title="금융기관별 최고금리 TOP 10",
+                labels={'x': '최고금리 (%)', 'y': '금융기관'},
+                color=bank_max_rates.values,
+                color_continuous_scale='Reds'
+            )
+            fig1.update_layout(height=400)
+            st.plotly_chart(fig1, use_container_width=True)
         
         with col2:
-            st.subheader("세후수령액 비교")
-            chart_data2 = selected_products[['금융기관명', '세후수령액']].set_index('금융기관명')
-            st.bar_chart(chart_data2)
+            # 금리 분포 히스토그램
+            fig2 = px.histogram(
+                df_products,
+                x='최고금리',
+                nbins=20,
+                title="금리 분포",
+                labels={'x': '최고금리 (%)', 'y': '상품 수'},
+                color_discrete_sequence=['#3498db']
+            )
+            fig2.update_layout(height=400)
+            st.plotly_chart(fig2, use_container_width=True)
         
-        # 상세 비교 표
-        st.subheader("상세 비교")
-        comparison_df = selected_products.drop(['선택'], axis=1)
-        st.dataframe(
-            comparison_df,
-            use_container_width=True,
-            hide_index=True
+        # 기본금리 vs 최고금리 산점도
+        fig3 = px.scatter(
+            df_products,
+            x='기본금리',
+            y='최고금리',
+            hover_data=['금융기관', '상품명'],
+            title="기본금리 vs 최고금리 관계",
+            labels={'x': '기본금리 (%)', 'y': '최고금리 (%)'},
+            color='최고금리',
+            color_continuous_scale='Viridis'
         )
+        fig3.update_layout(height=500)
+        st.plotly_chart(fig3, use_container_width=True)
+    
+    with tab4:
+        st.subheader("🔍 상품 검색")
+        
+        search_term = st.text_input("상품명 또는 금융기관명으로 검색", placeholder="예: 우리은행, 적금, 우대조건")
+        
+        if search_term:
+            search_results = df_products[
+                df_products['상품명'].str.contains(search_term, case=False, na=False) |
+                df_products['금융기관'].str.contains(search_term, case=False, na=False) |
+                df_products['우대조건'].str.contains(search_term, case=False, na=False)
+            ]
+            
+            if not search_results.empty:
+                st.success(f"🔍 '{search_term}' 검색 결과: {len(search_results)}개 상품")
+                st.dataframe(search_results, use_container_width=True)
+            else:
+                st.info(f"😕 '{search_term}'에 대한 검색 결과가 없습니다.")
+    
+    # 푸터
+    st.markdown("---")
+    st.markdown("""
+    <div style='text-align: center; color: #666; padding: 20px;'>
+        <p><strong>💡 실시간 금융상품 비교 서비스</strong></p>
+        <p>📊 데이터 출처: 금융감독원 금융상품통합비교공시 Open API</p>
+        <p>⏰ 마지막 업데이트: {}</p>
+        <p>🔐 API 인증 상태: <span style="color: green;">✅ 정상 연결</span></p>
+    </div>
+    """.format(last_update.strftime("%Y년 %m월 %d일 %H시 %M분")), unsafe_allow_html=True)
 
-else:
-    st.info("검색 조건에 맞는 상품이 없습니다. 필터 조건을 조정해보세요.")
-
-# 푸터 정보
-st.markdown("---")
-st.markdown("""
-<div style='text-align: center; color: #666; font-size: 0.9em;'>
-    💡 <strong>주의사항</strong><br>
-    • 세후수령액은 세금을 제한 후의 실제 만기금액입니다<br>
-    • 예금상품은 각 금융기관별 고시금리 기준이며, 예금 신규시 금액별 또는 영업점별로 차등금리를 적용할 수 있습니다<br>
-    • 실제 가입 전 해당 금융기관에 정확한 조건을 확인하시기 바랍니다
-</div>
-""", unsafe_allow_html=True)
-
-# 실시간 업데이트 시뮬레이션 (자동 새로고침)
-if st.sidebar.checkbox("자동 새로고침 (30초마다)", value=False):
-    time.sleep(30)
-    st.rerun()
+if __name__ == "__main__":
+    main()
