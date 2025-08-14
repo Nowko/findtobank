@@ -242,7 +242,6 @@ def main():
     # 선택된 상품의 수익 계산 표시 (사이드바)
     if 'selected_product' in st.session_state:
         selected = st.session_state.selected_product
-        st.sidebar.subheader("💰 수익 계산")
         
         # 가입기간을 개월 수로 변환
         period_map = {
@@ -260,15 +259,7 @@ def main():
         # 정기적금 계산
         calc_result = calculate_after_tax_amount(savings_amount, selected['최고금리_숫자'], savings_period)
         
-        st.sidebar.info(f"**선택 상품**")
-        st.sidebar.write(f"🏛️ {selected['금융기관']}")
-        st.sidebar.write(f"📊 {selected['상품명']}")
-        st.sidebar.write(f"📈 연 금리: {selected['최고금리']}")
-        
-        st.sidebar.write("---")
-        st.sidebar.write(f"**매월 적립**: {savings_amount:,}원")
-        
-        # 세후 수령액을 크고 잘 보이게 표시
+        # 세후 수령액을 크고 잘 보이게 표시 (매월 저축 금액 바로 아래)
         st.sidebar.markdown(f"""
         <div style="
             background: linear-gradient(135deg, #4CAF50, #45a049);
@@ -286,6 +277,15 @@ def main():
         </div>
         """, unsafe_allow_html=True)
         
+        st.sidebar.subheader("💰 수익 계산")
+        
+        st.sidebar.info(f"**선택 상품**")
+        st.sidebar.write(f"🏛️ {selected['금융기관']}")
+        st.sidebar.write(f"📊 {selected['상품명']}")
+        st.sidebar.write(f"📈 연 금리: {selected['최고금리']}")
+        
+        st.sidebar.write("---")
+        st.sidebar.write(f"**매월 적립**: {savings_amount:,}원")
         st.sidebar.write(f"**적립 기간**: {period} ({savings_period}개월)")
         st.sidebar.write(f"**총 납입원금**: {calc_result['total_principal']:,.0f}원")
         st.sidebar.success(f"**총 이자**: {calc_result['total_interest']:,.0f}원")
