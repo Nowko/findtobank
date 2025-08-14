@@ -1,4 +1,37 @@
-import streamlit as st
+def calculate_after_tax_amount(monthly_amount, annual_rate, months=12, tax_rate=0.154, method="standard"):
+    """정기적금 세후 수령액 계산 (매월 적립 방식)"""
+    
+    if method == "moneta_style":
+        # 모네타 유사 방식 (누적복리)
+        monthly_rate = annual_rate / 100 / 12
+        total_amount = 0
+        running_balance = 0
+        
+        for month in range(1, months + 1):
+            # 매월 적립
+            running_balance += monthly_amount
+            
+            # 기존 잔액에 대한 이자 계산 (2개월째부터)
+            if month > 1:
+                running_balance = running_balance * (1 + monthly_rate)
+        
+        # 마지막 달 이자 적용
+        total_amount = running_balance * (1 + monthly_rate)
+        total_principal = monthly_amount * months
+        total_interest = total_amount - total_principal
+        
+    else:
+        # 표준 월복리 방식 (기존 방식)
+        monthly_rate = annual_rate / 100 / 12
+        total_principal = monthly_amount * months
+        total_interest = 0
+        
+        # 매월 적립하는 정기적금 복리 계산
+        for month in range(1, months + 1):
+            # 각 월 적립금이 적립되어 있는 기간
+            remaining_months = months - month + 1
+            # 해당 월 적립금의 이자 (복리)
+            month_interestimport streamlit as st
 import pandas as pd
 import requests
 import json
@@ -116,21 +149,40 @@ class FinanceAPI:
         
         return all_products if all_products['result']['baseList'] else None
 
-def calculate_after_tax_amount(monthly_amount, annual_rate, months=12, tax_rate=0.154):
+def calculate_after_tax_amount(monthly_amount, annual_rate, months=12, tax_rate=0.154, method="standard"):
     """정기적금 세후 수령액 계산 (매월 적립 방식)"""
-    # 연 이자율을 월 이자율로 변환
-    monthly_rate = annual_rate / 100 / 12
     
-    total_principal = monthly_amount * months  # 총 납입원금
-    total_interest = 0
-    
-    # 매월 적립하는 정기적금 복리 계산
-    for month in range(1, months + 1):
-        # 각 월 적립금이 적립되어 있는 기간
-        remaining_months = months - month + 1
-        # 해당 월 적립금의 이자 (복리)
-        month_interest = monthly_amount * ((1 + monthly_rate) ** remaining_months - 1)
-        total_interest += month_interest
+    if method == "moneta_style":
+        # 모네타 유사 방식 (누적복리)
+        monthly_rate = annual_rate / 100 / 12
+        running_balance = 0
+        
+        for month in range(1, months + 1):
+            # 매월 적립
+            running_balance += monthly_amount
+            
+            # 기존 잔액에 대한 이자 계산 (2개월째부터)
+            if month > 1:
+                running_balance = running_balance * (1 + monthly_rate)
+        
+        # 마지막 달 이자 적용
+        total_amount = running_balance * (1 + monthly_rate)
+        total_principal = monthly_amount * months
+        total_interest = total_amount - total_principal
+        
+    else:
+        # 표준 월복리 방식 (기존 방식)
+        monthly_rate = annual_rate / 100 / 12
+        total_principal = monthly_amount * months
+        total_interest = 0
+        
+        # 매월 적립하는 정기적금 복리 계산
+        for month in range(1, months + 1):
+            # 각 월 적립금이 적립되어 있는 기간
+            remaining_months = months - month + 1
+            # 해당 월 적립금의 이자 (복리)
+            month_interest = monthly_amount * ((1 + monthly_rate) ** remaining_months - 1)
+            total_interest += month_interest
     
     # 세금 계산 (이자소득세 15.4%)
     tax = total_interest * tax_rate
@@ -146,8 +198,8 @@ def calculate_after_tax_amount(monthly_amount, annual_rate, months=12, tax_rate=
         'net_interest': total_interest - tax
     }
 
-def process_data(api_data):
-    """API 데이터 처리"""
+def process_data(api_data, period_filter=None):
+    """API 데이터 처리 - 가입기간 필터링 포함"""
     if not api_data or not api_data.get('result'):
         return pd.DataFrame()
     
@@ -159,13 +211,64 @@ def process_data(api_data):
     
     df_base = pd.DataFrame(base_list)
     
+    # 가입기간 필터링 (API 데이터 자체에서 필터링)
+    if period_filter and period_filter != "전체":
+        # 상품명이나 기타 필드에서 가입기간 정보 추출하여 필터링
+        period_keywords = {
+            "3개월": ["3개월", "3M", "90일"],
+            "6개월": ["6개월", "6M", "180일"],
+            "1년": ["1년", "12개월", "12M"],
+            "2년": ["2년", "24개월", "24M"],
+            "3년": ["3년", "36개월", "36M"],
+            "4년": ["4년", "48개월", "48M"],
+            "5년": ["5년", "60개월", "60M"]
+        }
+        
+        if period_filter in period_keywords:
+            keywords = period_keywords[period_filter]
+            # 상품명, 가입대상, 우대조건 등에서 해당 기간 키워드 포함 상품만 필터링
+            mask = df_base['fin_prdt_nm'].str.contains('|'.join(keywords), na=False, case=False)
+            if 'join_member' in df_base.columns:
+                mask |= df_base['join_member'].str.contains('|'.join(keywords), na=False, case=False)
+            if 'spcl_cnd' in df_base.columns:
+                mask |= df_base['spcl_cnd'].str.contains('|'.join(keywords), na=False, case=False)
+            
+            df_base = df_base[mask]
+    
     if option_list:
         df_options = pd.DataFrame(option_list)
-        max_rates = df_options.groupby('fin_prdt_cd').agg({
-            'intr_rate': 'max',
-            'intr_rate2': 'max'
-        }).reset_index()
-        df_merged = df_base.merge(max_rates, on='fin_prdt_cd', how='left')
+        
+        # 옵션 데이터에서도 가입기간 필터링
+        if period_filter and period_filter != "전체":
+            # 옵션 데이터에서 save_trm(저축기간) 필드로 필터링
+            if 'save_trm' in df_options.columns:
+                period_map = {
+                    "3개월": "3",
+                    "6개월": "6", 
+                    "1년": "12",
+                    "2년": "24",
+                    "3년": "36",
+                    "4년": "48",
+                    "5년": "60"
+                }
+                
+                if period_filter in period_map:
+                    target_months = period_map[period_filter]
+                    df_options = df_options[df_options['save_trm'] == target_months]
+        
+        # 필터링된 기준 상품과 매칭되는 옵션만 유지
+        df_options = df_options[df_options['fin_prdt_cd'].isin(df_base['fin_prdt_cd'])]
+        
+        if not df_options.empty:
+            max_rates = df_options.groupby('fin_prdt_cd').agg({
+                'intr_rate': 'max',
+                'intr_rate2': 'max'
+            }).reset_index()
+            df_merged = df_base.merge(max_rates, on='fin_prdt_cd', how='left')
+        else:
+            df_merged = df_base.copy()
+            df_merged['intr_rate'] = 0
+            df_merged['intr_rate2'] = 0
     else:
         df_merged = df_base.copy()
         df_merged['intr_rate'] = 0
@@ -245,6 +348,16 @@ def main():
     savings_amount_man = savings_amount // 10000
     st.sidebar.write(f"💰 **{savings_amount_man}만원** / 월")
     
+    # 계산 방식 선택
+    st.sidebar.subheader("📊 계산 방식")
+    calculation_method = st.sidebar.radio(
+        "이자 계산 방식을 선택하세요",
+        options=["standard", "moneta_style"],
+        format_func=lambda x: "표준 월복리 방식" if x == "standard" else "모네타 유사 방식",
+        index=1,  # 기본값: 모네타 유사 방식
+        help="표준 방식: 일반적인 금융권 계산 방식\n모네타 방식: 모네타 사이트와 유사한 계산 방식"
+    )
+    
     # 선택된 상품의 수익 계산 표시 (사이드바)
     if 'selected_product' in st.session_state:
         selected = st.session_state.selected_product
@@ -263,7 +376,7 @@ def main():
         savings_period = period_map.get(period, 12)
         
         # 정기적금 계산
-        calc_result = calculate_after_tax_amount(savings_amount, selected['최고금리_숫자'], savings_period)
+        calc_result = calculate_after_tax_amount(savings_amount, selected['최고금리_숫자'], savings_period, method=calculation_method)
         
         # 세후 수령액을 크고 잘 보이게 표시 (매월 저축 금액 바로 아래)
         st.sidebar.markdown(f"""
@@ -305,8 +418,9 @@ def main():
     finance_api = FinanceAPI(api_key)
     
     # 데이터 조회
-    if st.session_state.get('refresh_data', False) or 'df_products' not in st.session_state:
+    if st.session_state.get('refresh_data', False) or 'df_products' not in st.session_state or st.session_state.get('last_period') != period:
         st.session_state.refresh_data = False
+        st.session_state.last_period = period
         
         with st.spinner(f"{product_type} 상품 데이터를 가져오는 중..."):
             if product_type == "적금":
@@ -316,7 +430,7 @@ def main():
             
             if api_data:
                 st.markdown('<div class="api-success">✅ API 연결 성공!</div>', unsafe_allow_html=True)
-                df_products = process_data(api_data)
+                df_products = process_data(api_data, period)  # 가입기간 필터 적용
                 st.session_state.df_products = df_products
                 st.session_state.last_update = datetime.now()
             else:
@@ -381,6 +495,10 @@ def main():
             st.success(f"🎯 적용된 필터: {' | '.join(active_filters)} ({len(filtered_df)}개 상품)")
         else:
             st.info(f"📊 전체 상품 표시 중 ({len(filtered_df)}개)")
+        
+        # 가입기간 필터링 안내
+        if period != "전체":
+            st.info(f"💡 {period} 상품만 표시됩니다. 가입기간을 변경하면 상품 목록이 업데이트됩니다.")
         
         # 현재 필터 상태를 사이드바에 표시
         if bank_type_filter:
