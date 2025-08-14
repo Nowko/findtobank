@@ -358,7 +358,7 @@ def main():
         # 테이블 표시 (클릭 가능한 상품명으로 변경)
         st.subheader("📋 상품 목록")
         for idx, row in page_data.iterrows():
-            col1, col2, col3, col4 = st.columns([2, 2, 1, 2])
+            col1, col2, col3 = st.columns([3, 3, 4])
             
             with col1:
                 # 클릭 가능한 상품명 버튼
@@ -371,12 +371,9 @@ def main():
                 st.caption(f"가입방법: {row['가입방법']}")
             
             with col3:
-                st.metric("최고금리", row['최고금리'])
-            
-            with col4:
-                st.caption(f"가입대상: {row['가입대상']}")
+                st.caption(f"**가입대상**: {row['가입대상']}")
                 if row['우대조건']:
-                    st.caption(f"우대조건: {row['우대조건'][:30]}...")
+                    st.caption(f"**우대조건**: {row['우대조건'][:50]}...")
             
             st.divider()
         
