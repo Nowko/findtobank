@@ -132,9 +132,25 @@ class FinanceAPIService:
         """예금 상품 조회"""
         return self._make_request('depositProductsSearch.json')
     
-    def get_company_list(self):
+    def get_company_list(self, bank_type='020000'):
         """금융회사 목록 조회"""
-        return self._make_request('companySearch.json')
+        return self._make_request('companySearch.json', {'topFinGrpNo': bank_type})
+    
+    def get_saving_products_by_region(self, region_code=None):
+        """지역별 적금 상품 조회"""
+        params = {}
+        if region_code:
+            # 실제 API에서 지역 코드를 지원하는 경우 사용
+            params['region'] = region_code
+        return self._make_request('savingProductsSearch.json', params)
+    
+    def get_deposit_products_by_region(self, region_code=None):
+        """지역별 예금 상품 조회"""
+        params = {}
+        if region_code:
+            # 실제 API에서 지역 코드를 지원하는 경우 사용
+            params['region'] = region_code
+        return self._make_request('depositProductsSearch.json', params)
 
 def process_product_data(api_data):
     """API 데이터를 처리하여 DataFrame으로 변환"""
@@ -518,32 +534,35 @@ def main():
             filtered_df = filtered_df[filtered_df['금융기관'].str.contains('은행', na=False) & 
                                     ~filtered_df['금융기관'].str.contains('저축은행', na=False)]
         
-        # 지역별 필터링
+        # 지역별 필터링 (개선된 방식)
         if region_filter:
-            # 금융기관명에 지역명이 포함된 기관 필터링
-            region_patterns = {
-                "서울": "서울",
-                "부산": "부산",
-                "대구": "대구",
-                "인천": "인천",
-                "광주": "광주",
-                "대전": "대전",
-                "울산": "울산",
-                "세종": "세종",
-                "경기": "경기",
-                "강원": "강원",
-                "충북": "충북",
-                "충남": "충남",
-                "전북": "전북",
-                "전남": "전남",
-                "경북": "경북",
-                "경남": "경남",
-                "제주": "제주"
+            # 지역별 금융기관 매핑 (실제 지역 기반)
+            region_banks = {
+                "서울": ["KB국민은행", "신한은행", "우리은행", "KEB하나은행", "NH농협은행", "IBK기업은행", "한국산업은행"],
+                "부산": ["부산은행", "BNK부산은행"],
+                "대구": ["대구은행", "DGB대구은행"],
+                "인천": ["신한은행", "KB국민은행", "우리은행"],
+                "광주": ["광주은행"],
+                "대전": ["대전은행"],
+                "울산": ["울산농협", "울산신협"],
+                "경기": ["경기은행"],
+                "강원": ["강원은행"],
+                "충북": ["충북은행"],
+                "충남": ["충남은행"],
+                "전북": ["전북은행"],
+                "전남": ["전남은행"],
+                "경북": ["경북은행"],
+                "경남": ["경남은행"],
+                "제주": ["제주은행", "제주농협"]
             }
             
-            if region_filter in region_patterns:
-                pattern = region_patterns[region_filter]
-                filtered_df = filtered_df[filtered_df['금융기관'].str.contains(pattern, na=False)]
+            # 지역에 따른 은행 필터링 (유연한 매칭)
+            if region_filter in region_banks:
+                region_pattern = f"({region_filter}|{'|'.join(region_banks[region_filter])})"
+                filtered_df = filtered_df[filtered_df['금융기관'].str.contains(region_pattern, na=False, regex=True)]
+            else:
+                # 기본 지역명 매칭
+                filtered_df = filtered_df[filtered_df['금융기관'].str.contains(region_filter, na=False)]
         
         # 특정 기관 선택 필터링
         if selected_banks:
@@ -562,6 +581,11 @@ def main():
         
         if active_filters:
             st.info(f"📊 적용된 필터: {' | '.join(active_filters)} ({len(filtered_df)}개 상품)")
+            
+            # 지역 필터링 안내 메시지
+            if region_filter and len(filtered_df) == 0:
+                st.warning(f"⚠️ '{region_filter}' 지역의 상품이 없습니다. 금융감독원 API는 본점 기준 데이터를 제공하므로, 해당 지역 기반 은행의 상품이 표시됩니다.")
+                st.info("💡 **참고**: 모네타와 결과가 다를 수 있는 이유는 모네타는 지점별 상품을 표시하지만, 금융감독원 API는 본점 기준 전국 상품을 제공하기 때문입니다.")
         else:
             st.info(f"📊 전체 상품 표시 중 ({len(filtered_df)}개)")
         
