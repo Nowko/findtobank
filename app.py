@@ -175,8 +175,10 @@ def process_product_data(api_data):
     result_df = pd.DataFrame({
         '금융기관': df_merged.get('kor_co_nm', ''),
         '상품명': df_merged.get('fin_prdt_nm', ''),
-        '기본금리': df_merged['기본금리'],
-        '최고금리': df_merged['최고금리'],
+        '기본금리': df_merged['기본금리'].apply(lambda x: f"{x:.2f}%" if pd.notnull(x) else "0.00%"),
+        '최고금리': df_merged['최고금리'].apply(lambda x: f"{x:.2f}%" if pd.notnull(x) else "0.00%"),
+        '기본금리_숫자': df_merged['기본금리'],  # 정렬용
+        '최고금리_숫자': df_merged['최고금리'],  # 정렬용
         '가입방법': df_merged.get('join_way', ''),
         '우대조건': df_merged.get('spcl_cnd', ''),
         '가입대상': df_merged.get('join_member', ''),
@@ -184,8 +186,8 @@ def process_product_data(api_data):
         '기관코드': df_merged.get('fin_co_no', '')
     })
     
-    # 최고금리 기준으로 정렬
-    result_df = result_df.sort_values('최고금리', ascending=False).reset_index(drop=True)
+    # 최고금리 기준으로 정렬 (숫자 컬럼 사용)
+    result_df = result_df.sort_values('최고금리_숫자', ascending=False).reset_index(drop=True)
     result_df.index = result_df.index + 1
     
     return result_df
@@ -282,7 +284,7 @@ def main():
         )
     
     with col2:
-        max_rate = df_products['최고금리'].max()
+        max_rate = df_products['최고금리_숫자'].max()
         st.metric(
             label="🔥 최고 금리",
             value=f"{max_rate:.2f}%",
@@ -290,11 +292,11 @@ def main():
         )
     
     with col3:
-        avg_rate = df_products['최고금리'].mean()
+        avg_rate = df_products['최고금리_숫자'].mean()
         st.metric(
             label="📈 평균 금리",
             value=f"{avg_rate:.2f}%",
-            delta=f"{len(df_products[df_products['최고금리'] >= 4])}개 상품이 4% 이상"
+            delta=f"{len(df_products[df_products['최고금리_숫자'] >= 4])}개 상품이 4% 이상"
         )
     
     with col4:
@@ -325,23 +327,18 @@ def main():
         # 필터 적용
         filtered_df = df_products.copy()
         if min_rate > 0:
-            filtered_df = filtered_df[filtered_df['최고금리'] >= min_rate]
+            filtered_df = filtered_df[filtered_df['최고금리_숫자'] >= min_rate]
         if selected_banks:
             filtered_df = filtered_df[filtered_df['금융기관'].isin(selected_banks)]
         
-        # 스타일링된 테이블 표시
-        def highlight_top_rates(val):
-            if isinstance(val, (int, float)) and val >= 5.0:
-                return 'background-color: #ffebee; font-weight: bold; color: #c62828'
-            elif isinstance(val, (int, float)) and val >= 3.0:
-                return 'background-color: #fff3e0; font-weight: bold; color: #ef6c00'
-            return ''
+        # 표시용 데이터프레임 (숫자 컬럼 제거)
+        display_df = filtered_df.drop(['기본금리_숫자', '최고금리_숫자'], axis=1)
         
-        styled_df = filtered_df.style.applymap(highlight_top_rates, subset=['최고금리'])
-        st.dataframe(styled_df, use_container_width=True, height=400)
+        # 스타일링된 테이블 표시
+        st.dataframe(display_df, use_container_width=True, height=400)
         
         # 다운로드 버튼
-        csv = filtered_df.to_csv(index=False, encoding='utf-8-sig')
+        csv = display_df.to_csv(index=False, encoding='utf-8-sig')
         st.download_button(
             label="📥 CSV 다운로드",
             data=csv,
@@ -367,8 +364,8 @@ def main():
                             <small style="color: #95a5a6;">{row['가입방법']} | {row['가입대상']}</small>
                         </div>
                         <div style="text-align: right;">
-                            <div class="rate-highlight">{row['최고금리']:.2f}%</div>
-                            <small style="color: #7f8c8d;">기본: {row['기본금리']:.2f}%</small>
+                            <div class="rate-highlight">{row['최고금리']}</div>
+                            <small style="color: #7f8c8d;">기본: {row['기본금리']}</small>
                         </div>
                     </div>
                 </div>
@@ -381,13 +378,13 @@ def main():
         
         with col1:
             st.subheader("🏛️ 금융기관별 최고금리 TOP 10")
-            bank_max_rates = df_products.groupby('금융기관')['최고금리'].max().sort_values(ascending=False).head(10)
+            bank_max_rates = df_products.groupby('금융기관')['최고금리_숫자'].max().sort_values(ascending=False).head(10)
             
             # 테이블 형태로 표시
             bank_df = pd.DataFrame({
                 '순위': range(1, len(bank_max_rates) + 1),
                 '금융기관': bank_max_rates.index,
-                '최고금리': bank_max_rates.values
+                '최고금리': [f"{rate:.2f}%" for rate in bank_max_rates.values]
             })
             st.dataframe(bank_df, use_container_width=True)
             
@@ -400,7 +397,7 @@ def main():
             # 금리 구간별 분포
             bins = [0, 2, 3, 4, 5, float('inf')]
             labels = ['0-2%', '2-3%', '3-4%', '4-5%', '5% 이상']
-            df_products['금리구간'] = pd.cut(df_products['최고금리'], bins=bins, labels=labels, include_lowest=True)
+            df_products['금리구간'] = pd.cut(df_products['최고금리_숫자'], bins=bins, labels=labels, include_lowest=True)
             
             rate_distribution = df_products['금리구간'].value_counts().sort_index()
             
@@ -418,14 +415,15 @@ def main():
         # 기본금리 vs 최고금리 상관관계
         st.subheader("💹 기본금리 vs 최고금리 상관관계")
         
-        correlation = df_products['기본금리'].corr(df_products['최고금리'])
+        correlation = df_products['기본금리_숫자'].corr(df_products['최고금리_숫자'])
         st.metric("상관계수", f"{correlation:.3f}", 
                  "강한 양의 상관관계" if correlation > 0.7 else "보통 상관관계" if correlation > 0.3 else "약한 상관관계")
         
         # 산점도 대신 테이블로 표시
         scatter_df = df_products[['금융기관', '상품명', '기본금리', '최고금리']].copy()
-        scatter_df['금리차이'] = scatter_df['최고금리'] - scatter_df['기본금리']
-        scatter_df = scatter_df.sort_values('금리차이', ascending=False)
+        scatter_df['금리차이'] = df_products['최고금리_숫자'] - df_products['기본금리_숫자']
+        scatter_df['금리차이'] = scatter_df['금리차이'].apply(lambda x: f"{x:.2f}%")
+        scatter_df = scatter_df.sort_values('금리차이', ascending=False, key=lambda x: df_products['최고금리_숫자'] - df_products['기본금리_숫자'])
         
         st.subheader("🎯 금리 차이가 큰 상품 TOP 10")
         st.dataframe(scatter_df.head(10), use_container_width=True)
