@@ -310,6 +310,43 @@ def main():
         st.subheader(f"📋 전체 {product_type} 상품 목록")
         
         # 필터링 옵션
+        st.subheader("📅 가입기간별 보기")
+        
+        # 가입기간별 버튼
+        period_cols = st.columns(7)
+        
+        with period_cols[0]:
+            btn_3m = st.button("3개월", use_container_width=True)
+        with period_cols[1]:
+            btn_6m = st.button("6개월", use_container_width=True)
+        with period_cols[2]:
+            btn_1y = st.button("1년", use_container_width=True)
+        with period_cols[3]:
+            btn_2y = st.button("2년", use_container_width=True)
+        with period_cols[4]:
+            btn_3y = st.button("3년", use_container_width=True)
+        with period_cols[5]:
+            btn_4y = st.button("4년", use_container_width=True)
+        with period_cols[6]:
+            btn_5y = st.button("5년", use_container_width=True)
+        
+        # 선택된 기간 확인
+        period_filter = None
+        if btn_3m:
+            period_filter = "3개월"
+        elif btn_6m:
+            period_filter = "6개월"
+        elif btn_1y:
+            period_filter = "1년"
+        elif btn_2y:
+            period_filter = "2년"
+        elif btn_3y:
+            period_filter = "3년"
+        elif btn_4y:
+            period_filter = "4년"
+        elif btn_5y:
+            period_filter = "5년"
+        
         st.subheader("🏛️ 금융기관 유형별 보기")
         
         # 금융기관 유형별 버튼 (전체와 은행만)
@@ -336,6 +373,12 @@ def main():
         # 필터 적용
         filtered_df = df_products.copy()
         
+        # 가입기간별 필터링 (실제 API 데이터에 기간 정보가 있는 경우에만 작동)
+        if period_filter:
+            # 실제 API에서 기간 정보를 받아올 수 있도록 추후 구현
+            # 현재는 표시만 하고 실제 필터링은 API 데이터 구조 확인 후 적용
+            st.info(f"⏰ **{period_filter}** 상품 필터 선택됨 (API 데이터 구조 확인 후 구현 예정)")
+        
         # 기관 유형별 필터링 (은행만)
         if bank_filter == "은행":
             # 은행: "은행"이 포함된 기관 (저축은행 제외)
@@ -347,10 +390,16 @@ def main():
             filtered_df = filtered_df[filtered_df['금융기관'].isin(selected_banks)]
         
         # 필터 상태 표시
+        active_filters = []
+        if period_filter:
+            active_filters.append(f"기간: {period_filter}")
         if bank_filter:
-            st.info(f"📊 현재 **{bank_filter}** 상품만 표시 중 ({len(filtered_df)}개)")
-        elif selected_banks:
-            st.info(f"📊 선택된 기관: {', '.join(selected_banks)} ({len(filtered_df)}개)")
+            active_filters.append(f"유형: {bank_filter}")
+        if selected_banks:
+            active_filters.append(f"기관: {', '.join(selected_banks)}")
+        
+        if active_filters:
+            st.info(f"📊 적용된 필터: {' | '.join(active_filters)} ({len(filtered_df)}개 상품)")
         else:
             st.info(f"📊 전체 상품 표시 중 ({len(filtered_df)}개)")
         
