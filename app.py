@@ -51,44 +51,70 @@ class FinanceAPI:
         self.base_url = "http://finlife.fss.or.kr/finlifeapi"
         
     def get_saving_products(self):
-        """적금 상품 조회"""
-        url = f"{self.base_url}/savingProductsSearch.json"
-        params = {
-            'auth': self.api_key,
-            'topFinGrpNo': '020000',
-            'pageNo': 1
-        }
+        """적금 상품 조회 (모든 기관 유형, 여러 페이지)"""
+        all_products = {'result': {'baseList': [], 'optionList': []}}
         
-        try:
-            response = requests.get(url, params=params, timeout=30)
-            if response.status_code == 200:
-                return response.json()
-            else:
-                st.error(f"API 오류: {response.status_code}")
-                return None
-        except Exception as e:
-            st.error(f"요청 실패: {str(e)}")
-            return None
+        # 다양한 기관 유형 조회
+        org_types = ['020000', '030300', '030201', '020201']  # 은행, 저축은행, 신협, 종금사
+        
+        for org_type in org_types:
+            for page in range(1, 6):  # 최대 5페이지까지 조회
+                url = f"{self.base_url}/savingProductsSearch.json"
+                params = {
+                    'auth': self.api_key,
+                    'topFinGrpNo': org_type,
+                    'pageNo': page
+                }
+                
+                try:
+                    response = requests.get(url, params=params, timeout=30)
+                    if response.status_code == 200:
+                        data = response.json()
+                        if data.get('result') and data['result'].get('baseList'):
+                            all_products['result']['baseList'].extend(data['result']['baseList'])
+                            if data['result'].get('optionList'):
+                                all_products['result']['optionList'].extend(data['result']['optionList'])
+                        else:
+                            break  # 더 이상 데이터가 없으면 중단
+                    time.sleep(0.1)  # API 요청 간격
+                except Exception as e:
+                    st.warning(f"기관유형 {org_type}, 페이지 {page} 조회 실패: {str(e)}")
+                    continue
+        
+        return all_products if all_products['result']['baseList'] else None
     
     def get_deposit_products(self):
-        """예금 상품 조회"""
-        url = f"{self.base_url}/depositProductsSearch.json"
-        params = {
-            'auth': self.api_key,
-            'topFinGrpNo': '020000',
-            'pageNo': 1
-        }
+        """예금 상품 조회 (모든 기관 유형, 여러 페이지)"""
+        all_products = {'result': {'baseList': [], 'optionList': []}}
         
-        try:
-            response = requests.get(url, params=params, timeout=30)
-            if response.status_code == 200:
-                return response.json()
-            else:
-                st.error(f"API 오류: {response.status_code}")
-                return None
-        except Exception as e:
-            st.error(f"요청 실패: {str(e)}")
-            return None
+        # 다양한 기관 유형 조회
+        org_types = ['020000', '030300', '030201', '020201']  # 은행, 저축은행, 신협, 종금사
+        
+        for org_type in org_types:
+            for page in range(1, 6):  # 최대 5페이지까지 조회
+                url = f"{self.base_url}/depositProductsSearch.json"
+                params = {
+                    'auth': self.api_key,
+                    'topFinGrpNo': org_type,
+                    'pageNo': page
+                }
+                
+                try:
+                    response = requests.get(url, params=params, timeout=30)
+                    if response.status_code == 200:
+                        data = response.json()
+                        if data.get('result') and data['result'].get('baseList'):
+                            all_products['result']['baseList'].extend(data['result']['baseList'])
+                            if data['result'].get('optionList'):
+                                all_products['result']['optionList'].extend(data['result']['optionList'])
+                        else:
+                            break  # 더 이상 데이터가 없으면 중단
+                    time.sleep(0.1)  # API 요청 간격
+                except Exception as e:
+                    st.warning(f"기관유형 {org_type}, 페이지 {page} 조회 실패: {str(e)}")
+                    continue
+        
+        return all_products if all_products['result']['baseList'] else None
 
 def process_data(api_data):
     """API 데이터 처리"""
