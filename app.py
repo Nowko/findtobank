@@ -406,6 +406,91 @@ def main():
         if btn_bank:
             bank_filter = "은행"
         
+        st.subheader("📍 지역별 보기")
+        
+        # 지역선택 버튼 (3행으로 구성)
+        # 첫 번째 행: 전체, 서울, 부산, 대구, 인천, 광주
+        region_cols1 = st.columns(6)
+        with region_cols1[0]:
+            btn_all_region = st.button("🇰🇷 전체", use_container_width=True)
+        with region_cols1[1]:
+            btn_seoul = st.button("🏢 서울", use_container_width=True)
+        with region_cols1[2]:
+            btn_busan = st.button("🌊 부산", use_container_width=True)
+        with region_cols1[3]:
+            btn_daegu = st.button("🏔️ 대구", use_container_width=True)
+        with region_cols1[4]:
+            btn_incheon = st.button("✈️ 인천", use_container_width=True)
+        with region_cols1[5]:
+            btn_gwangju = st.button("🌸 광주", use_container_width=True)
+        
+        # 두 번째 행: 대전, 울산, 세종, 경기, 강원, 충북
+        region_cols2 = st.columns(6)
+        with region_cols2[0]:
+            btn_daejeon = st.button("🏛️ 대전", use_container_width=True)
+        with region_cols2[1]:
+            btn_ulsan = st.button("🏭 울산", use_container_width=True)
+        with region_cols2[2]:
+            btn_sejong = st.button("🏛️ 세종", use_container_width=True)
+        with region_cols2[3]:
+            btn_gyeonggi = st.button("🏘️ 경기", use_container_width=True)
+        with region_cols2[4]:
+            btn_gangwon = st.button("⛰️ 강원", use_container_width=True)
+        with region_cols2[5]:
+            btn_chungbuk = st.button("🏞️ 충북", use_container_width=True)
+        
+        # 세 번째 행: 충남, 전북, 전남, 경북, 경남, 제주
+        region_cols3 = st.columns(6)
+        with region_cols3[0]:
+            btn_chungnam = st.button("🌾 충남", use_container_width=True)
+        with region_cols3[1]:
+            btn_jeonbuk = st.button("🍃 전북", use_container_width=True)
+        with region_cols3[2]:
+            btn_jeonnam = st.button("🌿 전남", use_container_width=True)
+        with region_cols3[3]:
+            btn_gyeongbuk = st.button("🏔️ 경북", use_container_width=True)
+        with region_cols3[4]:
+            btn_gyeongnam = st.button("🌊 경남", use_container_width=True)
+        with region_cols3[5]:
+            btn_jeju = st.button("🏝️ 제주", use_container_width=True)
+        
+        # 선택된 지역 확인
+        region_filter = None
+        if btn_seoul:
+            region_filter = "서울"
+        elif btn_busan:
+            region_filter = "부산"
+        elif btn_daegu:
+            region_filter = "대구"
+        elif btn_incheon:
+            region_filter = "인천"
+        elif btn_gwangju:
+            region_filter = "광주"
+        elif btn_daejeon:
+            region_filter = "대전"
+        elif btn_ulsan:
+            region_filter = "울산"
+        elif btn_sejong:
+            region_filter = "세종"
+        elif btn_gyeonggi:
+            region_filter = "경기"
+        elif btn_gangwon:
+            region_filter = "강원"
+        elif btn_chungbuk:
+            region_filter = "충북"
+        elif btn_chungnam:
+            region_filter = "충남"
+        elif btn_jeonbuk:
+            region_filter = "전북"
+        elif btn_jeonnam:
+            region_filter = "전남"
+        elif btn_gyeongbuk:
+            region_filter = "경북"
+        elif btn_gyeongnam:
+            region_filter = "경남"
+        elif btn_jeju:
+            region_filter = "제주"
+        
         # 다중 선택 필터 (기존)
         selected_banks = st.multiselect(
             "특정 금융기관 선택 (선택사항)",
@@ -417,17 +502,48 @@ def main():
         # 필터 적용
         filtered_df = df_products.copy()
         
-        # 가입기간별 필터링
-        if period_filter:
+        # 가입기간별 필터링 (가입기간 컬럼이 있는 경우에만)
+        if period_filter and '가입기간' in filtered_df.columns:
             # 해당 기간이 포함된 상품만 필터링
-            mask = filtered_df['가입기간'].apply(lambda periods: period_filter in periods)
-            filtered_df = filtered_df[mask]
+            try:
+                mask = filtered_df['가입기간'].apply(lambda periods: period_filter in periods if isinstance(periods, list) else False)
+                filtered_df = filtered_df[mask]
+            except:
+                # 필터링 실패 시 전체 데이터 유지
+                st.warning(f"⚠️ {period_filter} 필터링 중 오류가 발생했습니다. 전체 데이터를 표시합니다.")
         
         # 기관 유형별 필터링 (은행만)
         if bank_filter == "은행":
             # 은행: "은행"이 포함된 기관 (저축은행 제외)
             filtered_df = filtered_df[filtered_df['금융기관'].str.contains('은행', na=False) & 
                                     ~filtered_df['금융기관'].str.contains('저축은행', na=False)]
+        
+        # 지역별 필터링
+        if region_filter:
+            # 금융기관명에 지역명이 포함된 기관 필터링
+            region_patterns = {
+                "서울": "서울",
+                "부산": "부산",
+                "대구": "대구",
+                "인천": "인천",
+                "광주": "광주",
+                "대전": "대전",
+                "울산": "울산",
+                "세종": "세종",
+                "경기": "경기",
+                "강원": "강원",
+                "충북": "충북",
+                "충남": "충남",
+                "전북": "전북",
+                "전남": "전남",
+                "경북": "경북",
+                "경남": "경남",
+                "제주": "제주"
+            }
+            
+            if region_filter in region_patterns:
+                pattern = region_patterns[region_filter]
+                filtered_df = filtered_df[filtered_df['금융기관'].str.contains(pattern, na=False)]
         
         # 특정 기관 선택 필터링
         if selected_banks:
@@ -439,6 +555,8 @@ def main():
             active_filters.append(f"기간: {period_filter}")
         if bank_filter:
             active_filters.append(f"유형: {bank_filter}")
+        if region_filter:
+            active_filters.append(f"지역: {region_filter}")
         if selected_banks:
             active_filters.append(f"기관: {', '.join(selected_banks)}")
         
@@ -447,12 +565,18 @@ def main():
         else:
             st.info(f"📊 전체 상품 표시 중 ({len(filtered_df)}개)")
         
-        # 표시용 데이터프레임 (숫자 컬럼과 ID 관련 컬럼 제거)
-        display_df = filtered_df[['금융기관', '상품명', '최고금리', '가입방법', '우대조건', '가입대상', '가입기간']]
+        # 표시용 데이터프레임 (가입기간 컬럼이 있는지 확인)
+        base_columns = ['금융기관', '상품명', '최고금리', '가입방법', '우대조건', '가입대상']
         
-        # 가입기간 컬럼을 문자열로 변환 (리스트를 보기 좋게)
-        display_df = display_df.copy()
-        display_df['가입기간'] = display_df['가입기간'].apply(lambda x: ', '.join(x) if isinstance(x, list) else str(x))
+        if '가입기간' in filtered_df.columns:
+            display_columns = base_columns + ['가입기간']
+            display_df = filtered_df[display_columns].copy()
+            # 가입기간 컬럼을 문자열로 변환 (리스트를 보기 좋게)
+            display_df['가입기간'] = display_df['가입기간'].apply(
+                lambda x: ', '.join(x) if isinstance(x, list) else str(x) if pd.notnull(x) else '정보없음'
+            )
+        else:
+            display_df = filtered_df[base_columns].copy()
         
         # 스타일링된 테이블 표시
         st.dataframe(display_df, use_container_width=True, height=400)
@@ -546,10 +670,16 @@ def main():
         
         # 최고금리 상위 상품 테이블
         st.subheader("🎯 최고금리 상위 상품 TOP 10")
-        top_rate_df = df_products[['금융기관', '상품명', '최고금리', '가입기간']].head(10)
-        # 가입기간을 문자열로 변환
-        top_rate_df = top_rate_df.copy()
-        top_rate_df['가입기간'] = top_rate_df['가입기간'].apply(lambda x: ', '.join(x) if isinstance(x, list) else str(x))
+        
+        if '가입기간' in df_products.columns:
+            top_rate_df = df_products[['금융기관', '상품명', '최고금리', '가입기간']].head(10).copy()
+            # 가입기간을 문자열로 변환
+            top_rate_df['가입기간'] = top_rate_df['가입기간'].apply(
+                lambda x: ', '.join(x) if isinstance(x, list) else str(x) if pd.notnull(x) else '정보없음'
+            )
+        else:
+            top_rate_df = df_products[['금융기관', '상품명', '최고금리']].head(10)
+        
         st.dataframe(top_rate_df, use_container_width=True)
     
     with tab4:
