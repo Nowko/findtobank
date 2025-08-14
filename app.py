@@ -1,16 +1,4 @@
-# 필터 상태 표시
-        active_filters = []
-        if region != "전체":
-            active_filters.append(f"지역: {region}")
-        if period != "전체":
-            active_filters.append(f"기간: {period}")
-        if bank_type_filter:
-            active_filters.append(f"기관: {bank_type_filter}")
-        
-        if active_filters:
-            st.success(f"🎯 적용된 필터: {' | '.join(active_filters)} ({len(filtered_df)}개 상품)")
-        else:
-            st.info(f"📊 전체 상품 표시 중 ({len(filtered_df)}개)")import streamlit as st
+import streamlit as st
 import pandas as pd
 import requests
 import json
@@ -279,6 +267,20 @@ def main():
             # "저축은행"이 포함된 기관만
             filtered_df = filtered_df[filtered_df['금융기관'].str.contains('저축은행', na=False)]
         # 전체인 경우 필터링 안 함
+        
+        # 필터 상태 표시
+        active_filters = []
+        if region != "전체":
+            active_filters.append(f"지역: {region}")
+        if period != "전체":
+            active_filters.append(f"기간: {period}")
+        if bank_type_filter:
+            active_filters.append(f"기관: {bank_type_filter}")
+        
+        if active_filters:
+            st.success(f"🎯 적용된 필터: {' | '.join(active_filters)} ({len(filtered_df)}개 상품)")
+        else:
+            st.info(f"📊 전체 상품 표시 중 ({len(filtered_df)}개)")
         
         # 페이지네이션
         items_per_page = 10
