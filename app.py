@@ -302,6 +302,20 @@ def main():
     # 지역 필터 처리
     region_filter = region_selection if region_selection != "전체" else None
     
+    # 가입기간별 선택
+    st.sidebar.subheader("📅 가입기간")
+    
+    period_filter = st.sidebar.selectbox(
+        "기간 선택",
+        ["전체", "3개월", "6개월", "1년", "2년", "3년", "4년", "5년"],
+        index=0,
+        help="원하는 가입기간을 선택하세요"
+    )
+    
+    # 전체 선택 시 필터 해제
+    if period_filter == "전체":
+        period_filter = None
+    
     # 실시간 데이터 조회 버튼
     if st.sidebar.button("📊 실시간 데이터 조회", type="primary", use_container_width=True):
         st.session_state.refresh_data = True
@@ -428,43 +442,6 @@ def main():
         st.subheader(f"📋 전체 {product_type} 상품 목록")
         
         # 필터링 옵션
-        st.subheader("📅 가입기간별 보기")
-        
-        # 가입기간별 버튼
-        period_cols = st.columns(7)
-        
-        with period_cols[0]:
-            btn_3m = st.button("3개월", use_container_width=True)
-        with period_cols[1]:
-            btn_6m = st.button("6개월", use_container_width=True)
-        with period_cols[2]:
-            btn_1y = st.button("1년", use_container_width=True)
-        with period_cols[3]:
-            btn_2y = st.button("2년", use_container_width=True)
-        with period_cols[4]:
-            btn_3y = st.button("3년", use_container_width=True)
-        with period_cols[5]:
-            btn_4y = st.button("4년", use_container_width=True)
-        with period_cols[6]:
-            btn_5y = st.button("5년", use_container_width=True)
-        
-        # 선택된 기간 확인
-        period_filter = None
-        if btn_3m:
-            period_filter = "3개월"
-        elif btn_6m:
-            period_filter = "6개월"
-        elif btn_1y:
-            period_filter = "1년"
-        elif btn_2y:
-            period_filter = "2년"
-        elif btn_3y:
-            period_filter = "3년"
-        elif btn_4y:
-            period_filter = "4년"
-        elif btn_5y:
-            period_filter = "5년"
-        
         st.subheader("🏛️ 금융기관 유형별 보기")
         
         # 금융기관 유형별 버튼 (전체와 은행만)
