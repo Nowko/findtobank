@@ -181,9 +181,7 @@ def process_product_data(api_data):
         '최고금리_숫자': df_merged['최고금리'],  # 정렬용
         '가입방법': df_merged.get('join_way', ''),
         '우대조건': df_merged.get('spcl_cnd', ''),
-        '가입대상': df_merged.get('join_member', ''),
-        '상품ID': df_merged.get('fin_prdt_cd', ''),
-        '기관코드': df_merged.get('fin_co_no', '')
+        '가입대상': df_merged.get('join_member', '')
     })
     
     # 최고금리 기준으로 정렬 (숫자 컬럼 사용)
