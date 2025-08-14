@@ -329,8 +329,8 @@ def main():
         if selected_banks:
             filtered_df = filtered_df[filtered_df['금융기관'].isin(selected_banks)]
         
-        # 표시용 데이터프레임 (숫자 컬럼 제거)
-        display_df = filtered_df.drop(['기본금리_숫자', '최고금리_숫자'], axis=1)
+        # 표시용 데이터프레임 (숫자 컬럼과 ID 관련 컬럼 제거)
+        display_df = filtered_df[['금융기관', '상품명', '기본금리', '최고금리', '가입방법', '우대조건', '가입대상']]
         
         # 스타일링된 테이블 표시
         st.dataframe(display_df, use_container_width=True, height=400)
@@ -421,7 +421,10 @@ def main():
         scatter_df = df_products[['금융기관', '상품명', '기본금리', '최고금리']].copy()
         scatter_df['금리차이'] = df_products['최고금리_숫자'] - df_products['기본금리_숫자']
         scatter_df['금리차이'] = scatter_df['금리차이'].apply(lambda x: f"{x:.2f}%")
-        scatter_df = scatter_df.sort_values('금리차이', ascending=False, key=lambda x: df_products['최고금리_숫자'] - df_products['기본금리_숫자'])
+        
+        # 금리차이 기준으로 정렬 (숫자값 기준)
+        diff_values = df_products['최고금리_숫자'] - df_products['기본금리_숫자']
+        scatter_df = scatter_df.iloc[diff_values.sort_values(ascending=False).index]
         
         st.subheader("🎯 금리 차이가 큰 상품 TOP 10")
         st.dataframe(scatter_df.head(10), use_container_width=True)
