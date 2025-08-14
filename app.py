@@ -150,26 +150,69 @@ def process_product_data(api_data):
     # 기본 상품 정보 DataFrame 생성
     df_base = pd.DataFrame(base_list)
     
-    # 옵션 정보가 있으면 최고 금리 계산
+    # 옵션 정보가 있으면 최고 금리와 기간 정보 계산
     if option_list:
         df_options = pd.DataFrame(option_list)
         
-        # 상품별 최고 금리 계산
-        max_rates = df_options.groupby('fin_prdt_cd').agg({
+        # 상품별 최고 금리와 기간 정보 계산
+        product_info = df_options.groupby('fin_prdt_cd').agg({
             'intr_rate': 'max',
-            'intr_rate2': 'max'
+            'intr_rate2': 'max',
+            'save_trm': lambda x: list(set(x))  # 기간 정보 수집
         }).reset_index()
         
         # 기본 정보와 병합
-        df_merged = df_base.merge(max_rates, on='fin_prdt_cd', how='left')
+        df_merged = df_base.merge(product_info, on='fin_prdt_cd', how='left')
     else:
         df_merged = df_base.copy()
         df_merged['intr_rate'] = 0
         df_merged['intr_rate2'] = 0
+        df_merged['save_trm'] = [['12']] * len(df_merged)  # 기본값 1년
     
     # 컬럼명 정리 및 데이터 타입 변환
     df_merged['기본금리'] = pd.to_numeric(df_merged.get('intr_rate', 0), errors='coerce').fillna(0)
     df_merged['최고금리'] = pd.to_numeric(df_merged.get('intr_rate2', 0), errors='coerce').fillna(0)
+    
+    # 기간 정보 처리 (개월 단위를 년/개월로 변환)
+    def convert_period(save_trm_list):
+        if not save_trm_list or not isinstance(save_trm_list, list):
+            return ['1년']
+        
+        periods = []
+        for trm in save_trm_list:
+            try:
+                months = int(trm)
+                if months == 3:
+                    periods.append('3개월')
+                elif months == 6:
+                    periods.append('6개월')
+                elif months == 12:
+                    periods.append('1년')
+                elif months == 24:
+                    periods.append('2년')
+                elif months == 36:
+                    periods.append('3년')
+                elif months == 48:
+                    periods.append('4년')
+                elif months == 60:
+                    periods.append('5년')
+                else:
+                    # 기타 기간은 년/개월로 변환
+                    if months >= 12:
+                        years = months // 12
+                        remaining_months = months % 12
+                        if remaining_months == 0:
+                            periods.append(f'{years}년')
+                        else:
+                            periods.append(f'{years}년{remaining_months}개월')
+                    else:
+                        periods.append(f'{months}개월')
+            except:
+                continue
+        
+        return periods if periods else ['1년']
+    
+    df_merged['가입기간'] = df_merged['save_trm'].apply(convert_period)
     
     # 필요한 컬럼만 선택
     result_df = pd.DataFrame({
@@ -179,7 +222,8 @@ def process_product_data(api_data):
         '최고금리_숫자': df_merged['최고금리'],  # 정렬용
         '가입방법': df_merged.get('join_way', ''),
         '우대조건': df_merged.get('spcl_cnd', ''),
-        '가입대상': df_merged.get('join_member', '')
+        '가입대상': df_merged.get('join_member', ''),
+        '가입기간': df_merged['가입기간']  # 기간 정보 추가
     })
     
     # 최고금리 기준으로 정렬 (숫자 컬럼 사용)
@@ -373,11 +417,11 @@ def main():
         # 필터 적용
         filtered_df = df_products.copy()
         
-        # 가입기간별 필터링 (실제 API 데이터에 기간 정보가 있는 경우에만 작동)
+        # 가입기간별 필터링
         if period_filter:
-            # 실제 API에서 기간 정보를 받아올 수 있도록 추후 구현
-            # 현재는 표시만 하고 실제 필터링은 API 데이터 구조 확인 후 적용
-            st.info(f"⏰ **{period_filter}** 상품 필터 선택됨 (API 데이터 구조 확인 후 구현 예정)")
+            # 해당 기간이 포함된 상품만 필터링
+            mask = filtered_df['가입기간'].apply(lambda periods: period_filter in periods)
+            filtered_df = filtered_df[mask]
         
         # 기관 유형별 필터링 (은행만)
         if bank_filter == "은행":
@@ -404,7 +448,11 @@ def main():
             st.info(f"📊 전체 상품 표시 중 ({len(filtered_df)}개)")
         
         # 표시용 데이터프레임 (숫자 컬럼과 ID 관련 컬럼 제거)
-        display_df = filtered_df[['금융기관', '상품명', '최고금리', '가입방법', '우대조건', '가입대상']]
+        display_df = filtered_df[['금융기관', '상품명', '최고금리', '가입방법', '우대조건', '가입대상', '가입기간']]
+        
+        # 가입기간 컬럼을 문자열로 변환 (리스트를 보기 좋게)
+        display_df = display_df.copy()
+        display_df['가입기간'] = display_df['가입기간'].apply(lambda x: ', '.join(x) if isinstance(x, list) else str(x))
         
         # 스타일링된 테이블 표시
         st.dataframe(display_df, use_container_width=True, height=400)
@@ -498,7 +546,10 @@ def main():
         
         # 최고금리 상위 상품 테이블
         st.subheader("🎯 최고금리 상위 상품 TOP 10")
-        top_rate_df = df_products[['금융기관', '상품명', '최고금리']].head(10)
+        top_rate_df = df_products[['금융기관', '상품명', '최고금리', '가입기간']].head(10)
+        # 가입기간을 문자열로 변환
+        top_rate_df = top_rate_df.copy()
+        top_rate_df['가입기간'] = top_rate_df['가입기간'].apply(lambda x: ', '.join(x) if isinstance(x, list) else str(x))
         st.dataframe(top_rate_df, use_container_width=True)
     
     with tab4:
