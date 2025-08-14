@@ -4,9 +4,8 @@ import requests
 import json
 from datetime import datetime
 import time
-import plotly.express as px
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 # 페이지 설정
 st.set_page_config(
@@ -389,44 +388,33 @@ def main():
             # 금융기관별 최고금리 비교
             bank_max_rates = df_products.groupby('금융기관')['최고금리'].max().sort_values(ascending=False).head(10)
             
-            fig1 = px.bar(
-                x=bank_max_rates.values,
-                y=bank_max_rates.index,
-                orientation='h',
-                title="금융기관별 최고금리 TOP 10",
-                labels={'x': '최고금리 (%)', 'y': '금융기관'},
-                color=bank_max_rates.values,
-                color_continuous_scale='Reds'
-            )
-            fig1.update_layout(height=400)
-            st.plotly_chart(fig1, use_container_width=True)
+            fig1, ax1 = plt.subplots(figsize=(10, 6))
+            bank_max_rates.plot(kind='barh', ax=ax1, color='skyblue')
+            ax1.set_title("금융기관별 최고금리 TOP 10")
+            ax1.set_xlabel("최고금리 (%)")
+            plt.tight_layout()
+            st.pyplot(fig1)
         
         with col2:
             # 금리 분포 히스토그램
-            fig2 = px.histogram(
-                df_products,
-                x='최고금리',
-                nbins=20,
-                title="금리 분포",
-                labels={'x': '최고금리 (%)', 'y': '상품 수'},
-                color_discrete_sequence=['#3498db']
-            )
-            fig2.update_layout(height=400)
-            st.plotly_chart(fig2, use_container_width=True)
+            fig2, ax2 = plt.subplots(figsize=(10, 6))
+            ax2.hist(df_products['최고금리'], bins=20, color='lightcoral', alpha=0.7)
+            ax2.set_title("금리 분포")
+            ax2.set_xlabel("최고금리 (%)")
+            ax2.set_ylabel("상품 수")
+            plt.tight_layout()
+            st.pyplot(fig2)
         
         # 기본금리 vs 최고금리 산점도
-        fig3 = px.scatter(
-            df_products,
-            x='기본금리',
-            y='최고금리',
-            hover_data=['금융기관', '상품명'],
-            title="기본금리 vs 최고금리 관계",
-            labels={'x': '기본금리 (%)', 'y': '최고금리 (%)'},
-            color='최고금리',
-            color_continuous_scale='Viridis'
-        )
-        fig3.update_layout(height=500)
-        st.plotly_chart(fig3, use_container_width=True)
+        fig3, ax3 = plt.subplots(figsize=(12, 6))
+        scatter = ax3.scatter(df_products['기본금리'], df_products['최고금리'], 
+                             c=df_products['최고금리'], cmap='viridis', alpha=0.7)
+        ax3.set_title("기본금리 vs 최고금리 관계")
+        ax3.set_xlabel("기본금리 (%)")
+        ax3.set_ylabel("최고금리 (%)")
+        plt.colorbar(scatter, ax=ax3, label='최고금리 (%)')
+        plt.tight_layout()
+        st.pyplot(fig3)
     
     with tab4:
         st.subheader("🔍 상품 검색")
