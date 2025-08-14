@@ -1,0 +1,11 @@
+﻿institution,group,productType,savingMethod,productName,termMonths,rateBase,rateMax,rateCalcType,minAmount,maxAmount,onlineOnly,region,conditions,sourceUrl,lastVerifiedAt
+카카오뱅크,은행,예금,,정기예금,12,0.035,0.041,복리,1000,1000000000,True,전국,자동이체 등 우대시 +0.3%p,https://example.com/kakaobank,2025-08-14
+토스뱅크,은행,예금,,정기예금,12,0.036,0.042,복리,1000,1000000000,True,전국,우대조건 충족 시,https://example.com/tossbank,2025-08-14
+OK저축은행,저축은행,예금,,OK정기예금,12,0.042,0.047,복리,10000,200000000,False,전국,신규/우대조건,https://example.com/ok,2025-08-14
+SBI저축은행,저축은행,예금,,정기예금,24,0.041,0.048,복리,10000,200000000,False,전국,인터넷/모바일 가입 우대,https://example.com/sbi,2025-08-14
+국민은행,은행,적금,정기적립식,KB정기적금,12,0.038,0.045,복리,10000,10000000,False,전국,급여이체 + 자동이체시,https://example.com/kb,2025-08-14
+카카오뱅크,은행,적금,정기적립식,자유적금,12,0.037,0.044,복리,10000,10000000,True,전국,조건 충족 시 우대,https://example.com/kakaosave,2025-08-14
+애큐온저축은행,저축은행,적금,정기적립식,처음만난적금,12,0.055,0.065,복리,10000,10000000,False,전국,신규/자동이체,https://example.com/acuon,2025-08-14
+부산은행,은행,적금,정기적립식,더모아적금,24,0.039,0.046,복리,10000,10000000,False,부산,지역 우대,https://example.com/busan,2025-08-14
+케이뱅크,은행,예금,,정기예금,36,0.038,0.044,복리,1000,1000000000,True,전국,조건 충족 시 우대,https://example.com/kbank,2025-08-14
+새마을금고,새마을금고,예금,,정기예탁금,12,0.04,0.05,단리,10000,200000000,False,전국,지점별 상이,https://example.com/smg,2025-08-14
