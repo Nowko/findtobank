@@ -244,11 +244,6 @@ def main():
         selected = st.session_state.selected_product
         st.sidebar.subheader("💰 수익 계산")
         
-        st.sidebar.info(f"**선택 상품**")
-        st.sidebar.write(f"🏛️ {selected['금융기관']}")
-        st.sidebar.write(f"📊 {selected['상품명']}")
-        st.sidebar.write(f"📈 연 금리: {selected['최고금리']}")
-        
         # 가입기간을 개월 수로 변환
         period_map = {
             "전체": 12,
@@ -265,14 +260,37 @@ def main():
         # 정기적금 계산
         calc_result = calculate_after_tax_amount(savings_amount, selected['최고금리_숫자'], savings_period)
         
+        st.sidebar.info(f"**선택 상품**")
+        st.sidebar.write(f"🏛️ {selected['금융기관']}")
+        st.sidebar.write(f"📊 {selected['상품명']}")
+        st.sidebar.write(f"📈 연 금리: {selected['최고금리']}")
+        
         st.sidebar.write("---")
         st.sidebar.write(f"**매월 적립**: {savings_amount:,}원")
+        
+        # 세후 수령액을 크고 잘 보이게 표시
+        st.sidebar.markdown(f"""
+        <div style="
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+            color: white;
+            margin: 15px 0;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        ">
+            <h3 style="margin: 0; font-size: 18px;">💎 세후 수령액</h3>
+            <h1 style="margin: 10px 0; font-size: 28px; font-weight: bold;">
+                {calc_result['after_tax_amount']:,.0f}원
+            </h1>
+        </div>
+        """, unsafe_allow_html=True)
+        
         st.sidebar.write(f"**적립 기간**: {period} ({savings_period}개월)")
         st.sidebar.write(f"**총 납입원금**: {calc_result['total_principal']:,.0f}원")
         st.sidebar.success(f"**총 이자**: {calc_result['total_interest']:,.0f}원")
         st.sidebar.warning(f"**세금 (15.4%)**: {calc_result['tax']:,.0f}원")
         st.sidebar.success(f"**세후 이자**: {calc_result['net_interest']:,.0f}원")
-        st.sidebar.metric("💎 **세후 수령액**", f"{calc_result['after_tax_amount']:,.0f}원")
     
     if st.sidebar.button("📊 실시간 데이터 조회", type="primary"):
         st.session_state.refresh_data = True
