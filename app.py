@@ -1,4 +1,16 @@
-import streamlit as st
+# 필터 상태 표시
+        active_filters = []
+        if region != "전체":
+            active_filters.append(f"지역: {region}")
+        if period != "전체":
+            active_filters.append(f"기간: {period}")
+        if bank_type_filter:
+            active_filters.append(f"기관: {bank_type_filter}")
+        
+        if active_filters:
+            st.success(f"🎯 적용된 필터: {' | '.join(active_filters)} ({len(filtered_df)}개 상품)")
+        else:
+            st.info(f"📊 전체 상품 표시 중 ({len(filtered_df)}개)")import streamlit as st
 import pandas as pd
 import requests
 import json
@@ -177,6 +189,27 @@ def main():
     
     period = st.sidebar.selectbox("가입기간", ["전체", "3개월", "6개월", "1년", "2년", "3년", "4년", "5년"])
     
+    # 금융기관 유형 선택
+    st.sidebar.subheader("🏛️ 금융기관 유형")
+    
+    # 버튼을 3개 행으로 배치
+    col1, col2, col3 = st.sidebar.columns(3)
+    
+    with col1:
+        btn_all_banks = st.button("🏦 전체", use_container_width=True, key="btn_all")
+    with col2:
+        btn_banks = st.button("🏛️ 은행", use_container_width=True, key="btn_bank")
+    with col3:
+        btn_savings = st.button("🏪 저축은행", use_container_width=True, key="btn_savings")
+    
+    # 선택된 기관 유형 결정
+    bank_type_filter = None
+    if btn_banks:
+        bank_type_filter = "은행"
+    elif btn_savings:
+        bank_type_filter = "저축은행"
+    # btn_all_banks 또는 아무것도 선택 안 함 = 전체
+    
     if st.sidebar.button("📊 실시간 데이터 조회", type="primary"):
         st.session_state.refresh_data = True
     
@@ -231,9 +264,21 @@ def main():
         # 필터링
         filtered_df = df_products.copy()
         
-        # 지역 필터링 (간단한 버전)
+        # 지역 필터링
         if region != "전체":
             filtered_df = filtered_df[filtered_df['금융기관'].str.contains(region, na=False)]
+        
+        # 금융기관 유형 필터링
+        if bank_type_filter == "은행":
+            # "은행"이 포함되지만 "저축은행"은 제외
+            filtered_df = filtered_df[
+                filtered_df['금융기관'].str.contains('은행', na=False) & 
+                ~filtered_df['금융기관'].str.contains('저축은행', na=False)
+            ]
+        elif bank_type_filter == "저축은행":
+            # "저축은행"이 포함된 기관만
+            filtered_df = filtered_df[filtered_df['금융기관'].str.contains('저축은행', na=False)]
+        # 전체인 경우 필터링 안 함
         
         # 페이지네이션
         items_per_page = 10
