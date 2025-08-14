@@ -361,14 +361,14 @@ def main():
             col1, col2, col3 = st.columns([3, 3, 4])
             
             with col1:
-                # 클릭 가능한 상품명 버튼
-                if st.button(f"🏛️ {row['금융기관']}", key=f"bank_{idx}", use_container_width=True):
-                    st.session_state.selected_product = row
-                st.caption(f"**{row['상품명']}**")
+                st.write(f"🏛️ **{row['금융기관']}**")
+                st.markdown(f"<span style='color: #1f77b4; font-weight: bold; font-size: 16px;'>{row['상품명']}</span>", unsafe_allow_html=True)
             
             with col2:
-                st.write(f"**금리**: {row['최고금리']}")
-                st.caption(f"가입방법: {row['가입방법']}")
+                # 클릭 가능한 금리 버튼
+                if st.button(f"📈 {row['최고금리']}", key=f"rate_{idx}", use_container_width=True, type="primary"):
+                    st.session_state.selected_product = row
+                st.markdown(f"<span style='color: #ff6b35; font-weight: bold;'>가입방법: {row['가입방법']}</span>", unsafe_allow_html=True)
             
             with col3:
                 st.caption(f"**가입대상**: {row['가입대상']}")
