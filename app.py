@@ -213,20 +213,22 @@ def main():
     # 버튼을 3개 행으로 배치
     col1, col2, col3 = st.sidebar.columns(3)
     
-    with col1:
-        btn_all_banks = st.button("🏦 전체", use_container_width=True, key="btn_all")
-    with col2:
-        btn_banks = st.button("🏛️ 은행", use_container_width=True, key="btn_bank")
-    with col3:
-        btn_savings = st.button("🏪 저축은행", use_container_width=True, key="btn_savings")
+    # 현재 선택된 필터 상태 확인
+    if 'bank_type_filter' not in st.session_state:
+        st.session_state.bank_type_filter = None
     
-    # 선택된 기관 유형 결정
-    bank_type_filter = None
-    if btn_banks:
-        bank_type_filter = "은행"
-    elif btn_savings:
-        bank_type_filter = "저축은행"
-    # btn_all_banks 또는 아무것도 선택 안 함 = 전체
+    with col1:
+        if st.button("🏦 전체", use_container_width=True, key="btn_all"):
+            st.session_state.bank_type_filter = None
+    with col2:
+        if st.button("🏛️ 은행", use_container_width=True, key="btn_bank"):
+            st.session_state.bank_type_filter = "은행"
+    with col3:
+        if st.button("🏪 저축은행", use_container_width=True, key="btn_savings"):
+            st.session_state.bank_type_filter = "저축은행"
+    
+    # 선택된 기관 유형 사용
+    bank_type_filter = st.session_state.bank_type_filter
     
     # 저축 금액 입력
     st.sidebar.subheader("💰 매월 저축 금액")
@@ -376,6 +378,12 @@ def main():
         else:
             st.info(f"📊 전체 상품 표시 중 ({len(filtered_df)}개)")
         
+        # 현재 필터 상태를 사이드바에 표시
+        if bank_type_filter:
+            st.sidebar.info(f"현재 필터: {bank_type_filter}")
+        else:
+            st.sidebar.info("현재 필터: 전체")
+        
         # 페이지네이션
         items_per_page = 10
         total_items = len(filtered_df)
@@ -409,9 +417,12 @@ def main():
                 st.markdown(f"<span style='color: #1f77b4; font-weight: bold; font-size: 16px;'>{row['상품명']}</span>", unsafe_allow_html=True)
             
             with col2:
-                # 클릭 가능한 금리 버튼
-                if st.button(f"📈 {row['최고금리']}", key=f"rate_{idx}", use_container_width=True, type="primary"):
+                # 클릭 가능한 금리 버튼 - 필터 상태를 유지하면서 상품 선택
+                if st.button(f"📈 {row['최고금리']}", key=f"rate_{idx}_{row['금융기관']}_{bank_type_filter}", use_container_width=True, type="primary"):
                     st.session_state.selected_product = row
+                    # 필터 상태 유지
+                    st.session_state.bank_type_filter = bank_type_filter
+                    st.rerun()
                 st.markdown(f"<span style='color: #ff6b35; font-weight: bold;'>가입방법: {row['가입방법']}</span>", unsafe_allow_html=True)
             
             with col3:
