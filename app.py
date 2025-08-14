@@ -4,8 +4,6 @@ import requests
 import json
 from datetime import datetime
 import time
-import matplotlib.pyplot as plt
-import seaborn as sns
 
 # 페이지 설정
 st.set_page_config(
@@ -380,41 +378,60 @@ def main():
                 """, unsafe_allow_html=True)
     
     with tab3:
-        st.subheader("📊 금리 분석 차트")
+        st.subheader("📊 금리 분석")
         
         col1, col2 = st.columns(2)
         
         with col1:
-            # 금융기관별 최고금리 비교
+            st.subheader("🏛️ 금융기관별 최고금리 TOP 10")
             bank_max_rates = df_products.groupby('금융기관')['최고금리'].max().sort_values(ascending=False).head(10)
             
-            fig1, ax1 = plt.subplots(figsize=(10, 6))
-            bank_max_rates.plot(kind='barh', ax=ax1, color='skyblue')
-            ax1.set_title("금융기관별 최고금리 TOP 10")
-            ax1.set_xlabel("최고금리 (%)")
-            plt.tight_layout()
-            st.pyplot(fig1)
+            # 테이블 형태로 표시
+            bank_df = pd.DataFrame({
+                '순위': range(1, len(bank_max_rates) + 1),
+                '금융기관': bank_max_rates.index,
+                '최고금리': bank_max_rates.values
+            })
+            st.dataframe(bank_df, use_container_width=True)
+            
+            # Streamlit 내장 바차트 사용
+            st.bar_chart(bank_max_rates)
         
         with col2:
-            # 금리 분포 히스토그램
-            fig2, ax2 = plt.subplots(figsize=(10, 6))
-            ax2.hist(df_products['최고금리'], bins=20, color='lightcoral', alpha=0.7)
-            ax2.set_title("금리 분포")
-            ax2.set_xlabel("최고금리 (%)")
-            ax2.set_ylabel("상품 수")
-            plt.tight_layout()
-            st.pyplot(fig2)
+            st.subheader("📈 금리 구간별 상품 수")
+            
+            # 금리 구간별 분포
+            bins = [0, 2, 3, 4, 5, float('inf')]
+            labels = ['0-2%', '2-3%', '3-4%', '4-5%', '5% 이상']
+            df_products['금리구간'] = pd.cut(df_products['최고금리'], bins=bins, labels=labels, include_lowest=True)
+            
+            rate_distribution = df_products['금리구간'].value_counts().sort_index()
+            
+            # 테이블로 표시
+            dist_df = pd.DataFrame({
+                '금리구간': rate_distribution.index,
+                '상품수': rate_distribution.values,
+                '비율(%)': (rate_distribution.values / len(df_products) * 100).round(1)
+            })
+            st.dataframe(dist_df, use_container_width=True)
+            
+            # Streamlit 내장 바차트 사용
+            st.bar_chart(rate_distribution)
         
-        # 기본금리 vs 최고금리 산점도
-        fig3, ax3 = plt.subplots(figsize=(12, 6))
-        scatter = ax3.scatter(df_products['기본금리'], df_products['최고금리'], 
-                             c=df_products['최고금리'], cmap='viridis', alpha=0.7)
-        ax3.set_title("기본금리 vs 최고금리 관계")
-        ax3.set_xlabel("기본금리 (%)")
-        ax3.set_ylabel("최고금리 (%)")
-        plt.colorbar(scatter, ax=ax3, label='최고금리 (%)')
-        plt.tight_layout()
-        st.pyplot(fig3)
+        # 기본금리 vs 최고금리 상관관계
+        st.subheader("💹 기본금리 vs 최고금리 상관관계")
+        
+        correlation = df_products['기본금리'].corr(df_products['최고금리'])
+        st.metric("상관계수", f"{correlation:.3f}", 
+                 "강한 양의 상관관계" if correlation > 0.7 else "보통 상관관계" if correlation > 0.3 else "약한 상관관계")
+        
+        # 산점도 대신 테이블로 표시
+        scatter_df = df_products[['금융기관', '상품명', '기본금리', '최고금리']].copy()
+        scatter_df['금리차이'] = scatter_df['최고금리'] - scatter_df['기본금리']
+        scatter_df = scatter_df.sort_values('금리차이', ascending=False)
+        
+        st.subheader("🎯 금리 차이가 큰 상품 TOP 10")
+        st.dataframe(scatter_df.head(10), use_container_width=True)
     
     with tab4:
         st.subheader("🔍 상품 검색")
