@@ -116,25 +116,34 @@ class FinanceAPI:
         
         return all_products if all_products['result']['baseList'] else None
 
-def calculate_after_tax_amount(principal, annual_rate, months=12, tax_rate=0.154):
-    """세후 수령액 계산"""
+def calculate_after_tax_amount(monthly_amount, annual_rate, months=12, tax_rate=0.154):
+    """정기적금 세후 수령액 계산 (매월 적립 방식)"""
     # 연 이자율을 월 이자율로 변환
     monthly_rate = annual_rate / 100 / 12
     
-    # 단리 계산 (대부분의 예적금이 단리)
-    interest = principal * (annual_rate / 100) * (months / 12)
+    total_principal = monthly_amount * months  # 총 납입원금
+    total_interest = 0
+    
+    # 매월 적립하는 정기적금 복리 계산
+    for month in range(1, months + 1):
+        # 각 월 적립금이 적립되어 있는 기간
+        remaining_months = months - month + 1
+        # 해당 월 적립금의 이자 (복리)
+        month_interest = monthly_amount * ((1 + monthly_rate) ** remaining_months - 1)
+        total_interest += month_interest
     
     # 세금 계산 (이자소득세 15.4%)
-    tax = interest * tax_rate
+    tax = total_interest * tax_rate
     
     # 세후 수령액
-    after_tax_amount = principal + interest - tax
+    after_tax_amount = total_principal + total_interest - tax
     
     return {
-        'total_interest': interest,
+        'total_principal': total_principal,
+        'total_interest': total_interest,
         'tax': tax,
         'after_tax_amount': after_tax_amount,
-        'net_interest': interest - tax
+        'net_interest': total_interest - tax
     }
 
 def process_data(api_data):
@@ -220,14 +229,22 @@ def main():
     # btn_all_banks 또는 아무것도 선택 안 함 = 전체
     
     # 저축 금액 입력
-    st.sidebar.subheader("💰 저축 금액")
+    st.sidebar.subheader("💰 매월 저축 금액")
     savings_amount = st.sidebar.number_input(
-        "저축할 금액 (원)", 
+        "매월 적립할 금액 (원)", 
         min_value=1000, 
-        max_value=100000000, 
+        max_value=10000000, 
         value=200000, 
         step=10000,
         format="%d"
+    )
+    
+    # 적립 기간 선택
+    savings_period = st.sidebar.selectbox(
+        "적립 기간",
+        options=[6, 12, 24, 36],
+        index=1,  # 기본값: 12개월
+        format_func=lambda x: f"{x}개월"
     )
     
     # 선택된 상품의 수익 계산 표시 (사이드바)
@@ -240,13 +257,17 @@ def main():
         st.sidebar.write(f"📊 {selected['상품명']}")
         st.sidebar.write(f"📈 연 금리: {selected['최고금리']}")
         
-        # 1년 기준 계산
-        calc_result = calculate_after_tax_amount(savings_amount, selected['최고금리_숫자'], 12)
+        # 정기적금 계산
+        calc_result = calculate_after_tax_amount(savings_amount, selected['최고금리_숫자'], savings_period)
         
+        st.sidebar.write("---")
+        st.sidebar.write(f"**매월 적립**: {savings_amount:,}원")
+        st.sidebar.write(f"**적립 기간**: {savings_period}개월")
+        st.sidebar.write(f"**총 납입원금**: {calc_result['total_principal']:,.0f}원")
         st.sidebar.success(f"**총 이자**: {calc_result['total_interest']:,.0f}원")
         st.sidebar.warning(f"**세금 (15.4%)**: {calc_result['tax']:,.0f}원")
         st.sidebar.success(f"**세후 이자**: {calc_result['net_interest']:,.0f}원")
-        st.sidebar.metric("💎 **1년 후 세후 수령액**", f"{calc_result['after_tax_amount']:,.0f}원")
+        st.sidebar.metric("💎 **세후 수령액**", f"{calc_result['after_tax_amount']:,.0f}원")
     
     if st.sidebar.button("📊 실시간 데이터 조회", type="primary"):
         st.session_state.refresh_data = True
