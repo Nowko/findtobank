@@ -310,22 +310,71 @@ def main():
         st.subheader(f"📋 전체 {product_type} 상품 목록")
         
         # 필터링 옵션
-        col1, col2 = st.columns(2)
+        st.subheader("🏛️ 금융기관 유형별 보기")
+        
+        # 금융기관 유형별 버튼
+        col1, col2, col3, col4, col5 = st.columns(5)
+        
         with col1:
-            min_rate = st.slider("최소 금리 (%)", 0.0, 10.0, 0.0, 0.1)
+            btn_all = st.button("🏦 전체", use_container_width=True)
         with col2:
-            selected_banks = st.multiselect(
-                "금융기관 필터",
-                options=df_products['금융기관'].unique(),
-                default=[]
-            )
+            btn_bank = st.button("🏛️ 은행", use_container_width=True)
+        with col3:
+            btn_savings = st.button("🏪 저축은행", use_container_width=True)
+        with col4:
+            btn_credit = st.button("🤝 신협", use_container_width=True)
+        with col5:
+            btn_finance = st.button("💼 종금사", use_container_width=True)
+        
+        # 금융기관 유형 매핑 (실제 API 응답에서 나오는 기관명 기준)
+        bank_filter = None
+        if btn_bank:
+            bank_filter = "은행"
+        elif btn_savings:
+            bank_filter = "저축은행"
+        elif btn_credit:
+            bank_filter = "신협"
+        elif btn_finance:
+            bank_filter = "종금사"
+        
+        # 다중 선택 필터 (기존)
+        selected_banks = st.multiselect(
+            "특정 금융기관 선택 (선택사항)",
+            options=df_products['금융기관'].unique(),
+            default=[],
+            help="특정 금융기관만 보고 싶을 때 선택하세요"
+        )
         
         # 필터 적용
         filtered_df = df_products.copy()
-        if min_rate > 0:
-            filtered_df = filtered_df[filtered_df['최고금리_숫자'] >= min_rate]
+        
+        # 기관 유형별 필터링
+        if bank_filter:
+            if bank_filter == "은행":
+                # 은행: "은행"이 포함된 기관
+                filtered_df = filtered_df[filtered_df['금융기관'].str.contains('은행', na=False) & 
+                                        ~filtered_df['금융기관'].str.contains('저축은행', na=False)]
+            elif bank_filter == "저축은행":
+                # 저축은행: "저축은행"이 포함된 기관
+                filtered_df = filtered_df[filtered_df['금융기관'].str.contains('저축은행', na=False)]
+            elif bank_filter == "신협":
+                # 신협: "신협" 또는 "신용협동조합"이 포함된 기관
+                filtered_df = filtered_df[filtered_df['금융기관'].str.contains('신협|신용협동조합', na=False)]
+            elif bank_filter == "종금사":
+                # 종금사: "종합금융", "증권", "투자" 등이 포함된 기관
+                filtered_df = filtered_df[filtered_df['금융기관'].str.contains('종합금융|증권|투자|캐피탈', na=False)]
+        
+        # 특정 기관 선택 필터링
         if selected_banks:
             filtered_df = filtered_df[filtered_df['금융기관'].isin(selected_banks)]
+        
+        # 필터 상태 표시
+        if bank_filter:
+            st.info(f"📊 현재 **{bank_filter}** 상품만 표시 중 ({len(filtered_df)}개)")
+        elif selected_banks:
+            st.info(f"📊 선택된 기관: {', '.join(selected_banks)} ({len(filtered_df)}개)")
+        else:
+            st.info(f"📊 전체 상품 표시 중 ({len(filtered_df)}개)")
         
         # 표시용 데이터프레임 (숫자 컬럼과 ID 관련 컬럼 제거)
         display_df = filtered_df[['금융기관', '상품명', '최고금리', '가입방법', '우대조건', '가입대상']]
