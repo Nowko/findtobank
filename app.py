@@ -239,14 +239,6 @@ def main():
         format="%d"
     )
     
-    # 적립 기간 선택
-    savings_period = st.sidebar.selectbox(
-        "적립 기간",
-        options=[6, 12, 24, 36],
-        index=1,  # 기본값: 12개월
-        format_func=lambda x: f"{x}개월"
-    )
-    
     # 선택된 상품의 수익 계산 표시 (사이드바)
     if 'selected_product' in st.session_state:
         selected = st.session_state.selected_product
@@ -257,12 +249,25 @@ def main():
         st.sidebar.write(f"📊 {selected['상품명']}")
         st.sidebar.write(f"📈 연 금리: {selected['최고금리']}")
         
+        # 가입기간을 개월 수로 변환
+        period_map = {
+            "전체": 12,
+            "3개월": 3,
+            "6개월": 6,
+            "1년": 12,
+            "2년": 24,
+            "3년": 36,
+            "4년": 48,
+            "5년": 60
+        }
+        savings_period = period_map.get(period, 12)
+        
         # 정기적금 계산
         calc_result = calculate_after_tax_amount(savings_amount, selected['최고금리_숫자'], savings_period)
         
         st.sidebar.write("---")
         st.sidebar.write(f"**매월 적립**: {savings_amount:,}원")
-        st.sidebar.write(f"**적립 기간**: {savings_period}개월")
+        st.sidebar.write(f"**적립 기간**: {period} ({savings_period}개월)")
         st.sidebar.write(f"**총 납입원금**: {calc_result['total_principal']:,.0f}원")
         st.sidebar.success(f"**총 이자**: {calc_result['total_interest']:,.0f}원")
         st.sidebar.warning(f"**세금 (15.4%)**: {calc_result['tax']:,.0f}원")
