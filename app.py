@@ -59,16 +59,6 @@ st.markdown("""
         color: #e74c3c;
     }
     
-    .bank-badge {
-        background: #3498db;
-        color: white;
-        padding: 5px 10px;
-        border-radius: 15px;
-        font-size: 0.8rem;
-        display: inline-block;
-        margin: 2px;
-    }
-    
     .product-card {
         border: 1px solid #e0e0e0;
         border-radius: 10px;
@@ -81,10 +71,19 @@ st.markdown("""
         transform: translateY(-2px);
         box-shadow: 0 4px 15px rgba(0,0,0,0.1);
     }
+    
+    .pagination-info {
+        text-align: center;
+        padding: 10px;
+        background-color: #f8f9fa;
+        border-radius: 5px;
+        margin: 10px 0;
+        font-weight: 500;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# 금융감독원 API 클래스 (개선된 버전)
+# 금융감독원 API 클래스
 class FinanceAPIService:
     def __init__(self, api_key):
         self.api_key = api_key
@@ -104,12 +103,10 @@ class FinanceAPIService:
         
         try:
             url = f"{self.base_url}/{endpoint}"
-            
             response = self.session.get(url, params=params, timeout=30)
             
             if response.status_code == 200:
                 data = response.json()
-                
                 if data.get('result'):
                     return data
                 else:
@@ -139,26 +136,6 @@ class FinanceAPIService:
     def get_deposit_products(self):
         """예금 상품 조회"""
         return self._make_request('depositProductsSearch.json')
-    
-    def get_company_list(self, bank_type='020000'):
-        """금융회사 목록 조회"""
-        return self._make_request('companySearch.json', {'topFinGrpNo': bank_type})
-    
-    def get_saving_products_by_region(self, region_code=None):
-        """지역별 적금 상품 조회"""
-        params = {}
-        if region_code:
-            # 실제 API에서 지역 코드를 지원하는 경우 사용
-            params['region'] = region_code
-        return self._make_request('savingProductsSearch.json', params)
-    
-    def get_deposit_products_by_region(self, region_code=None):
-        """지역별 예금 상품 조회"""
-        params = {}
-        if region_code:
-            # 실제 API에서 지역 코드를 지원하는 경우 사용
-            params['region'] = region_code
-        return self._make_request('depositProductsSearch.json', params)
 
 def process_product_data(api_data):
     """API 데이터를 처리하여 DataFrame으로 변환"""
@@ -435,11 +412,18 @@ def main():
             delta="금융기관"
         )
     
-    # 탭으로 구분된 뷰
-    tab1, tab2, tab3, tab4 = st.tabs(["📋 전체 상품", "🏆 TOP 10", "📊 분석 차트", "🔍 상품 검색"])
+    # 탭으로 구분된 뷰 (개선된 스크롤 및 접근성)
+    tab1, tab2, tab3, tab4 = st.tabs(["📋 전체 상품", "🏆 TOP 10", "📊 분석", "🔍 상품 검색"])
     
     with tab1:
         st.subheader(f"📋 전체 {product_type} 상품 목록")
+        
+        # 상단에 중요 정보 표시
+        col1, col2 = st.columns(2)
+        with col1:
+            st.info(f"📊 총 **{len(df_products)}개** {product_type} 상품이 검색되었습니다")
+        with col2:
+            st.info("💡 **팁**: 아래 페이지 버튼으로 더 많은 상품을 확인하세요!")
         
         # 필터링 옵션
         st.subheader("🏛️ 금융기관 유형별 보기")
@@ -457,13 +441,14 @@ def main():
         if btn_bank:
             bank_filter = "은행"
         
-        # 다중 선택 필터 (기존)
-        selected_banks = st.multiselect(
-            "특정 금융기관 선택 (선택사항)",
-            options=df_products['금융기관'].unique(),
-            default=[],
-            help="특정 금융기관만 보고 싶을 때 선택하세요"
-        )
+        # 검색 옵션들을 접을 수 있는 형태로
+        with st.expander("🔍 추가 검색 옵션", expanded=True):
+            selected_banks = st.multiselect(
+                "특정 금융기관 선택 (선택사항)",
+                options=df_products['금융기관'].unique(),
+                default=[],
+                help="특정 금융기관만 보고 싶을 때 선택하세요"
+            )
         
         # 필터 적용
         filtered_df = df_products.copy()
@@ -530,7 +515,7 @@ def main():
             active_filters.append(f"기관: {', '.join(selected_banks)}")
         
         if active_filters:
-            st.info(f"📊 적용된 필터: {' | '.join(active_filters)} ({len(filtered_df)}개 상품)")
+            st.success(f"🎯 적용된 필터: {' | '.join(active_filters)} ({len(filtered_df)}개 상품)")
             
             # 지역 필터링 안내 메시지
             if region_filter and len(filtered_df) == 0:
@@ -552,69 +537,27 @@ def main():
         else:
             display_df = filtered_df[base_columns].copy()
         
-        # 스타일링된 테이블 표시 (페이지네이션과 고정 높이 적용)
+        # 페이지네이션과 깔끔한 테이블 표시
         st.subheader("📄 상품 목록")
         
         # 페이지네이션 설정
         items_per_page = 10
         total_pages = (len(display_df) + items_per_page - 1) // items_per_page
         
-        if total_pages > 1:
-            col1, col2, col3 = st.columns([1, 2, 1])
-            with col2:
-                current_page = st.selectbox(
-                    f"페이지 선택 (총 {total_pages}페이지, {len(display_df)}개 상품)",
-                    range(1, total_pages + 1),
-                    key="page_selector"
-                )
-        else:
-            current_page = 1
+        # 현재 페이지 (세션 상태에서 관리)
+        if 'current_page' not in st.session_state:
+            st.session_state.current_page = 1
+        
+        # 페이지 범위 확인
+        if st.session_state.current_page > total_pages:
+            st.session_state.current_page = 1
+        
+        current_page = st.session_state.current_page
         
         # 현재 페이지 데이터 추출
         start_idx = (current_page - 1) * items_per_page
         end_idx = start_idx + items_per_page
         page_df = display_df.iloc[start_idx:end_idx]
-        
-        # 스크롤 가능한 컨테이너로 표시
-        st.markdown("""
-        <style>
-        .scrollable-table {
-            max-height: 600px;
-            overflow-y: auto;
-            border: 2px solid #e1e5e9;
-            border-radius: 10px;
-            padding: 10px;
-            background-color: white;
-        }
-        
-        .scrollable-table::-webkit-scrollbar {
-            width: 12px;
-        }
-        
-        .scrollable-table::-webkit-scrollbar-track {
-            background: #f1f1f1;
-            border-radius: 10px;
-        }
-        
-        .scrollable-table::-webkit-scrollbar-thumb {
-            background: #667eea;
-            border-radius: 10px;
-        }
-        
-        .scrollable-table::-webkit-scrollbar-thumb:hover {
-            background: #5a6fd8;
-        }
-        
-        .pagination-info {
-            text-align: center;
-            padding: 10px;
-            background-color: #f8f9fa;
-            border-radius: 5px;
-            margin: 10px 0;
-            font-weight: 500;
-        }
-        </style>
-        """, unsafe_allow_html=True)
         
         # 페이지네이션 정보 표시
         st.markdown(f"""
@@ -623,48 +566,74 @@ def main():
         </div>
         """, unsafe_allow_html=True)
         
-        # 스크롤바가 보이는 데이터프레임
-        with st.container():
-            st.dataframe(
-                page_df, 
-                use_container_width=True, 
-                height=400,  # 고정 높이로 스크롤바 표시
-                hide_index=True
-            )
+        # 깔끔한 데이터프레임 표시 (스크롤바 없음)
+        st.dataframe(
+            page_df, 
+            use_container_width=True, 
+            hide_index=True
+        )
         
-        # 페이지 네비게이션 버튼
+        # 페이지네이션 (1, 2, 3, 4 형식)
         if total_pages > 1:
-            col1, col2, col3, col4, col5 = st.columns(5)
+            # 페이지 번호 버튼들
+            pagination_cols = []
             
-            with col1:
-                if current_page > 1:
-                    if st.button("⬅️ 이전", key="prev_page"):
-                        st.session_state.page_selector = current_page - 1
-                        st.rerun()
+            # 이전 버튼
+            pagination_cols.append("prev")
             
-            with col2:
-                if current_page > 2:
-                    if st.button("1️⃣ 첫 페이지", key="first_page"):
-                        st.session_state.page_selector = 1
-                        st.rerun()
+            # 페이지 번호 계산 (최대 7개 페이지 표시: 1 2 3 ... 8 9 10)
+            if total_pages <= 7:
+                # 전체 페이지가 7개 이하면 모두 표시
+                page_numbers = list(range(1, total_pages + 1))
+            else:
+                # 현재 페이지 기준으로 앞뒤 표시
+                if current_page <= 4:
+                    page_numbers = [1, 2, 3, 4, 5, "...", total_pages]
+                elif current_page >= total_pages - 3:
+                    page_numbers = [1, "...", total_pages-4, total_pages-3, total_pages-2, total_pages-1, total_pages]
+                else:
+                    page_numbers = [1, "...", current_page-1, current_page, current_page+1, "...", total_pages]
             
-            with col3:
-                st.markdown(f"<div style='text-align: center; padding: 10px; font-weight: bold;'>{current_page} / {total_pages}</div>", 
-                           unsafe_allow_html=True)
+            pagination_cols.extend(page_numbers)
+            pagination_cols.append("next")
             
-            with col4:
-                if current_page < total_pages - 1:
-                    if st.button("🔚 마지막", key="last_page"):
-                        st.session_state.page_selector = total_pages
-                        st.rerun()
+            # 컬럼 생성
+            cols = st.columns(len(pagination_cols))
             
-            with col5:
-                if current_page < total_pages:
-                    if st.button("다음 ➡️", key="next_page"):
-                        st.session_state.page_selector = current_page + 1
-                        st.rerun()
+            for idx, col_content in enumerate(pagination_cols):
+                with cols[idx]:
+                    if col_content == "prev":
+                        if current_page > 1:
+                            if st.button("‹ 이전", key="prev_btn", use_container_width=True):
+                                st.button("‹ 이전", key="prev_btn_disabled", disabled=True, use_container_width=True)
+                    
+                    elif col_content == "next":
+                        if current_page < total_pages:
+                            if st.button("다음 ›", key="next_btn", use_container_width=True):
+                                st.session_state.current_page = current_page + 1
+                                st.rerun()
+                        else:
+                            st.button("다음 ›", key="next_btn_disabled", disabled=True, use_container_width=True)
+                    
+                    elif col_content == "...":
+                        st.markdown("<div style='text-align: center; padding: 8px;'>...</div>", unsafe_allow_html=True)
+                    
+                    else:
+                        # 페이지 번호 버튼
+                        is_current = (col_content == current_page)
+                        button_type = "primary" if is_current else "secondary"
+                        
+                        if st.button(
+                            str(col_content), 
+                            key=f"page_{col_content}", 
+                            type=button_type,
+                            use_container_width=True,
+                            disabled=is_current
+                        ):
+                            st.session_state.current_page = col_content
+                            st.rerun()
         
-        # 다운로드 버튼
+        # CSV 다운로드 버튼
         csv = display_df.to_csv(index=False, encoding='utf-8-sig')
         st.download_button(
             label="📥 CSV 다운로드",
@@ -672,7 +641,15 @@ def main():
             file_name=f'{product_type}_products_{datetime.now().strftime("%Y%m%d_%H%M")}.csv',
             mime='text/csv'
         )
-    
+        
+        # 추가 콘텐츠 안내
+        st.markdown("""
+        <div style="background-color: #e8f4fd; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #1f77b4;">
+            <h4 style="color: #1f77b4; margin: 0 0 10px 0;">💡 더 많은 분석이 궁금하다면?</h4>
+            <p style="margin: 0;">상단의 <strong>🏆 TOP 10</strong>, <strong>📊 분석</strong>, <strong>🔍 상품 검색</strong> 탭을 확인해보세요!</p>
+        </div>
+        """, unsafe_allow_html=True)
+
     with tab2:
         st.subheader("🏆 TOP 10 고금리 상품")
         
@@ -696,7 +673,7 @@ def main():
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
-    
+
     with tab3:
         st.subheader("📊 금리 분석")
         
@@ -738,7 +715,7 @@ def main():
             # Streamlit 내장 바차트 사용
             st.bar_chart(rate_distribution)
         
-        # 기본금리 vs 최고금리 상관관계 섹션 제거하고 간단한 통계로 대체
+        # 금리 통계
         st.subheader("💹 금리 통계")
         
         col1, col2, col3 = st.columns(3)
@@ -764,7 +741,7 @@ def main():
             top_rate_df = df_products[['금융기관', '상품명', '최고금리']].head(10)
         
         st.dataframe(top_rate_df, use_container_width=True)
-    
+
     with tab4:
         st.subheader("🔍 상품 검색")
         
@@ -779,7 +756,15 @@ def main():
             
             if not search_results.empty:
                 st.success(f"🔍 '{search_term}' 검색 결과: {len(search_results)}개 상품")
-                st.dataframe(search_results, use_container_width=True)
+                
+                # 검색 결과도 페이지네이션 적용
+                search_display_df = search_results[base_columns].copy()
+                if '가입기간' in search_results.columns:
+                    search_display_df['가입기간'] = search_results['가입기간'].apply(
+                        lambda x: ', '.join(x) if isinstance(x, list) else str(x) if pd.notnull(x) else '정보없음'
+                    )
+                
+                st.dataframe(search_display_df, use_container_width=True)
             else:
                 st.info(f"😕 '{search_term}'에 대한 검색 결과가 없습니다.")
     
@@ -795,4 +780,7 @@ def main():
     """.format(last_update.strftime("%Y년 %m월 %d일 %H시 %M분")), unsafe_allow_html=True)
 
 if __name__ == "__main__":
-    main()
+    main().session_state.current_page = current_page - 1
+                                st.rerun()
+                        else:
+                            st
