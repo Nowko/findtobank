@@ -466,88 +466,18 @@ def main():
         
         st.subheader("📍 지역별 보기")
         
-        # 지역선택 버튼 (3행으로 구성)
-        # 첫 번째 행: 전체, 서울, 부산, 대구, 인천, 광주
-        region_cols1 = st.columns(6)
-        with region_cols1[0]:
-            btn_all_region = st.button("🇰🇷 전체", use_container_width=True)
-        with region_cols1[1]:
-            btn_seoul = st.button("🏢 서울", use_container_width=True)
-        with region_cols1[2]:
-            btn_busan = st.button("🌊 부산", use_container_width=True)
-        with region_cols1[3]:
-            btn_daegu = st.button("🏔️ 대구", use_container_width=True)
-        with region_cols1[4]:
-            btn_incheon = st.button("✈️ 인천", use_container_width=True)
-        with region_cols1[5]:
-            btn_gwangju = st.button("🌸 광주", use_container_width=True)
+        # 지역선택 셀렉트박스
+        region_filter = st.selectbox(
+            "지역 선택",
+            ["전체", "서울", "부산", "대구", "인천", "광주", "대전", "울산", "세종", 
+             "경기", "강원", "충북", "충남", "전북", "전남", "경북", "경남", "제주"],
+            index=0,
+            help="특정 지역의 금융기관 상품만 보고 싶을 때 선택하세요"
+        )
         
-        # 두 번째 행: 대전, 울산, 세종, 경기, 강원, 충북
-        region_cols2 = st.columns(6)
-        with region_cols2[0]:
-            btn_daejeon = st.button("🏛️ 대전", use_container_width=True)
-        with region_cols2[1]:
-            btn_ulsan = st.button("🏭 울산", use_container_width=True)
-        with region_cols2[2]:
-            btn_sejong = st.button("🏛️ 세종", use_container_width=True)
-        with region_cols2[3]:
-            btn_gyeonggi = st.button("🏘️ 경기", use_container_width=True)
-        with region_cols2[4]:
-            btn_gangwon = st.button("⛰️ 강원", use_container_width=True)
-        with region_cols2[5]:
-            btn_chungbuk = st.button("🏞️ 충북", use_container_width=True)
-        
-        # 세 번째 행: 충남, 전북, 전남, 경북, 경남, 제주
-        region_cols3 = st.columns(6)
-        with region_cols3[0]:
-            btn_chungnam = st.button("🌾 충남", use_container_width=True)
-        with region_cols3[1]:
-            btn_jeonbuk = st.button("🍃 전북", use_container_width=True)
-        with region_cols3[2]:
-            btn_jeonnam = st.button("🌿 전남", use_container_width=True)
-        with region_cols3[3]:
-            btn_gyeongbuk = st.button("🏔️ 경북", use_container_width=True)
-        with region_cols3[4]:
-            btn_gyeongnam = st.button("🌊 경남", use_container_width=True)
-        with region_cols3[5]:
-            btn_jeju = st.button("🏝️ 제주", use_container_width=True)
-        
-        # 선택된 지역 확인
-        region_filter = None
-        if btn_seoul:
-            region_filter = "서울"
-        elif btn_busan:
-            region_filter = "부산"
-        elif btn_daegu:
-            region_filter = "대구"
-        elif btn_incheon:
-            region_filter = "인천"
-        elif btn_gwangju:
-            region_filter = "광주"
-        elif btn_daejeon:
-            region_filter = "대전"
-        elif btn_ulsan:
-            region_filter = "울산"
-        elif btn_sejong:
-            region_filter = "세종"
-        elif btn_gyeonggi:
-            region_filter = "경기"
-        elif btn_gangwon:
-            region_filter = "강원"
-        elif btn_chungbuk:
-            region_filter = "충북"
-        elif btn_chungnam:
-            region_filter = "충남"
-        elif btn_jeonbuk:
-            region_filter = "전북"
-        elif btn_jeonnam:
-            region_filter = "전남"
-        elif btn_gyeongbuk:
-            region_filter = "경북"
-        elif btn_gyeongnam:
-            region_filter = "경남"
-        elif btn_jeju:
-            region_filter = "제주"
+        # 전체 선택 시 필터 해제
+        if region_filter == "전체":
+            region_filter = None
         
         # 다중 선택 필터 (기존)
         selected_banks = st.multiselect(
