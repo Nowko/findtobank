@@ -149,40 +149,55 @@ class FinanceAPI:
         
         return all_products if all_products['result']['baseList'] else None
 
-def calculate_after_tax_amount(monthly_amount, annual_rate, months=12, tax_rate=0.154, method="standard"):
-    """정기적금 세후 수령액 계산 (매월 적립 방식)"""
+def calculate_after_tax_amount(monthly_amount, annual_rate, months=12, tax_rate=0.154, interest_type="복리", method="standard"):
+    """정기적금 세후 수령액 계산 (매월 적립 방식) - 단리/복리 구분"""
     
-    if method == "moneta_style":
-        # 모네타 유사 방식 (누적복리)
-        monthly_rate = annual_rate / 100 / 12
-        running_balance = 0
-        
-        for month in range(1, months + 1):
-            # 매월 적립
-            running_balance += monthly_amount
-            
-            # 기존 잔액에 대한 이자 계산 (2개월째부터)
-            if month > 1:
-                running_balance = running_balance * (1 + monthly_rate)
-        
-        # 마지막 달 이자 적용
-        total_amount = running_balance * (1 + monthly_rate)
-        total_principal = monthly_amount * months
-        total_interest = total_amount - total_principal
-        
-    else:
-        # 표준 월복리 방식 (기존 방식)
-        monthly_rate = annual_rate / 100 / 12
+    # 상품의 이자계산방법에 따라 계산 방식 결정
+    if interest_type == "단리":
+        # 단리 계산
         total_principal = monthly_amount * months
         total_interest = 0
         
-        # 매월 적립하는 정기적금 복리 계산
+        # 각 월 적립금의 단리 이자 계산
         for month in range(1, months + 1):
-            # 각 월 적립금이 적립되어 있는 기간
             remaining_months = months - month + 1
-            # 해당 월 적립금의 이자 (복리)
-            month_interest = monthly_amount * ((1 + monthly_rate) ** remaining_months - 1)
+            # 단리: 원금 × 연이자율 × (기간/12)
+            month_interest = monthly_amount * (annual_rate / 100) * (remaining_months / 12)
             total_interest += month_interest
+            
+    else:
+        # 복리 계산 (기본값)
+        if method == "moneta_style":
+            # 모네타 유사 방식 (누적복리)
+            monthly_rate = annual_rate / 100 / 12
+            running_balance = 0
+            
+            for month in range(1, months + 1):
+                # 매월 적립
+                running_balance += monthly_amount
+                
+                # 기존 잔액에 대한 이자 계산 (2개월째부터)
+                if month > 1:
+                    running_balance = running_balance * (1 + monthly_rate)
+            
+            # 마지막 달 이자 적용
+            total_amount = running_balance * (1 + monthly_rate)
+            total_principal = monthly_amount * months
+            total_interest = total_amount - total_principal
+            
+        else:
+            # 표준 월복리 방식 (기존 방식)
+            monthly_rate = annual_rate / 100 / 12
+            total_principal = monthly_amount * months
+            total_interest = 0
+            
+            # 매월 적립하는 정기적금 복리 계산
+            for month in range(1, months + 1):
+                # 각 월 적립금이 적립되어 있는 기간
+                remaining_months = months - month + 1
+                # 해당 월 적립금의 이자 (복리)
+                month_interest = monthly_amount * ((1 + monthly_rate) ** remaining_months - 1)
+                total_interest += month_interest
     
     # 세금 계산 (이자소득세 15.4%)
     tax = total_interest * tax_rate
@@ -195,7 +210,8 @@ def calculate_after_tax_amount(monthly_amount, annual_rate, months=12, tax_rate=
         'total_interest': total_interest,
         'tax': tax,
         'after_tax_amount': after_tax_amount,
-        'net_interest': total_interest - tax
+        'net_interest': total_interest - tax,
+        'interest_type': interest_type
     }
 
 def process_data(api_data, period_filter=None):
@@ -282,7 +298,8 @@ def process_data(api_data, period_filter=None):
         '최고금리_숫자': pd.to_numeric(df_merged.get('intr_rate2', 0), errors='coerce').fillna(0),
         '가입방법': df_merged.get('join_way', ''),
         '우대조건': df_merged.get('spcl_cnd', ''),
-        '가입대상': df_merged.get('join_member', '')
+        '가입대상': df_merged.get('join_member', ''),
+        '이자계산방법': df_merged.get('intr_rate_type_nm', '복리')  # 이자계산방법 추가
     })
     
     return result_df.sort_values('최고금리_숫자', ascending=False).reset_index(drop=True)
@@ -375,8 +392,15 @@ def main():
         }
         savings_period = period_map.get(period, 12)
         
-        # 정기적금 계산
-        calc_result = calculate_after_tax_amount(savings_amount, selected['최고금리_숫자'], savings_period, method=calculation_method)
+        # 정기적금 계산 - 상품의 이자계산방법 적용
+        product_interest_type = selected.get('이자계산방법', '복리')
+        calc_result = calculate_after_tax_amount(
+            savings_amount, 
+            selected['최고금리_숫자'], 
+            savings_period, 
+            interest_type=product_interest_type,
+            method=calculation_method
+        )
         
         # 세후 수령액을 크고 잘 보이게 표시 (매월 저축 금액 바로 아래)
         st.sidebar.markdown(f"""
@@ -402,6 +426,7 @@ def main():
         st.sidebar.write(f"🏛️ {selected['금융기관']}")
         st.sidebar.write(f"📊 {selected['상품명']}")
         st.sidebar.write(f"📈 연 금리: {selected['최고금리']}")
+        st.sidebar.write(f"🔢 이자방식: {calc_result['interest_type']}")
         
         st.sidebar.write("---")
         st.sidebar.write(f"**매월 적립**: {savings_amount_man}만원")
@@ -548,6 +573,11 @@ def main():
                 st.markdown(f"<span style='color: #ff6b35; font-weight: bold;'>가입방법: {row['가입방법']}</span>", unsafe_allow_html=True)
             
             with col3:
+                # 이자계산방법 표시 추가
+                interest_method = row.get('이자계산방법', '복리')
+                method_color = "#28a745" if interest_method == "복리" else "#6c757d"
+                st.markdown(f"<span style='color: {method_color}; font-weight: bold;'>🔢 {interest_method}</span>", unsafe_allow_html=True)
+                
                 st.caption(f"**가입대상**: {row['가입대상']}")
                 if row['우대조건']:
                     st.caption(f"**우대조건**: {row['우대조건'][:50]}...")
