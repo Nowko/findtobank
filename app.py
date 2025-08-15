@@ -479,6 +479,31 @@ def main():
                     product_name = product_name[:20] + "..."
                 st.markdown(f"<span style='color: #1f77b4; font-weight: bold; font-size: 12px;'>{product_name}</span>", 
                            unsafe_allow_html=True)
+                
+                # 최종 세후 수령액 계산 및 표시
+                period_map = {
+                    "전체": 12, "3개월": 3, "6개월": 6, "1년": 12,
+                    "2년": 24, "3년": 36
+                }
+                savings_period = period_map.get(period, 12)
+                
+                calc_result = calculate_after_tax_amount(
+                    savings_amount,
+                    row['최고금리_숫자'], 
+                    savings_period, 
+                    interest_type=row.get('이자계산방법', '단리'),
+                    product_type=product_type
+                )
+                
+                # 세후 수령액을 강조하여 표시
+                st.markdown(f"""
+                <div style="background-color: #e8f5e8; padding: 5px; border-radius: 5px; margin-top: 5px;">
+                    <span style="font-size: 10px; color: #666;">💰 세후 수령액</span><br>
+                    <span style="font-weight: bold; color: #2e7d32; font-size: 12px;">
+                        {calc_result['after_tax_amount']:,.0f}원
+                    </span>
+                </div>
+                """, unsafe_allow_html=True)
             
             with col2:
                 # 금리, 가입방법, 가입대상을 한 줄에 배치
