@@ -197,6 +197,7 @@ def calculate_after_tax_amount(monthly_amount, annual_rate, months=12, tax_rate=
                 remaining_months = months - month + 1
                 # 해당 월 적립금의 이자 (복리)
                 month_interest = monthly_amount * ((1 + monthly_rate) ** remaining_months - 1)
+                total_interest += month_interest = monthly_amount * ((1 + monthly_rate) ** remaining_months - 1)
                 total_interest += month_interest
     
     # 세금 계산 (이자소득세 15.4%)
