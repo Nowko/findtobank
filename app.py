@@ -421,11 +421,11 @@ def main():
     
     if st.sidebar.button("📊 실시간 데이터 조회", type="primary"):
         st.session_state.refresh_data = True
-        # 캐시 초기화
-        if 'df_products' in st.session_state:
-            del st.session_state['df_products']
-        if 'selected_product' in st.session_state:
-            del st.session_state['selected_product']
+        # 캐시 완전 초기화
+        for key in list(st.session_state.keys()):
+            if key.startswith(('df_products', 'selected_product', 'last_')):
+                del st.session_state[key]
+        st.rerun()  # 강제 새로고침
     
     finance_api = FinanceAPI(api_key)
     
