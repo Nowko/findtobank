@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
+import pytz
 
 st.set_page_config(
     page_title="금융상품 비교센터",
@@ -17,11 +18,11 @@ st.markdown("""
 <style>
 .main-header {
     text-align: center;
-    padding: 2rem 0;
+    padding: 1rem 0;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
     border-radius: 15px;
-    margin-bottom: 2rem;
+    margin-bottom: 1rem;
 }
 .api-success {
     background-color: #d4edda;
@@ -275,8 +276,9 @@ def load_data_with_progress(product_type, period):
 def main():
     st.markdown("""
     <div class="main-header">
-        <h1>🏦 금융상품 비교센터</h1>
+        <h2>🏦 금융상품 비교센터</h2>
         <p>금융감독원 공식 API 연동 - 최적화된 빠른 조회</p>
+        <p style="font-size: 12px; margin-top: 10px; opacity: 0.8;">Developed by NOWKO</p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -431,8 +433,20 @@ def main():
         avg_rate = df_products['최고금리_숫자'].mean()
         st.metric("평균 금리", f"{avg_rate:.2f}%")
     with col4:
-        last_update = st.session_state.get('last_update', datetime.now())
-        st.metric("업데이트", last_update.strftime("%H:%M"))
+        last_update = st.session_state.get('last_update')
+        if last_update:
+            # 한국시간으로 표시
+            if hasattr(last_update, 'tzinfo') and last_update.tzinfo:
+                update_time = last_update.strftime("%H:%M")
+            else:
+                # 기존 datetime이 timezone 정보가 없는 경우 한국시간으로 변환
+                kst = pytz.timezone('Asia/Seoul')
+                last_update = kst.localize(last_update) if last_update.tzinfo is None else last_update.astimezone(kst)
+                update_time = last_update.strftime("%H:%M")
+        else:
+            kst = pytz.timezone('Asia/Seoul')
+            update_time = datetime.now(kst).strftime("%H:%M")
+        st.metric("업데이트", f"{update_time} KST")
     
     # 탭 구성
     tab1, tab2, tab3 = st.tabs(["📋 전체 상품", "🏆 TOP 10", "📊 분석"])
