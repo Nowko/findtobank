@@ -221,12 +221,13 @@ def process_data(api_data, period_filter=None):
         
         if not df_options.empty:
             # 최고금리와 함께 저축기간 정보도 병합
-            max_rates = df_options.groupby('fin_prdt_cd').agg({
-                'intr_rate': 'max',
-                'intr_rate2': 'max',
-                'save_trm': 'first'  # 저축기간 정보도 함께 가져오기
-            }).reset_index()
-            df_merged = df_base.merge(max_rates, on='fin_prdt_cd', how='left')
+            # 먼저 최고금리에 해당하는 저축기간을 찾음
+            max_rate_with_term = df_options.loc[df_options.groupby('fin_prdt_cd')['intr_rate2'].idxmax()]
+            
+            # 상품별 최고금리와 해당 저축기간 매핑
+            product_info = max_rate_with_term[['fin_prdt_cd', 'intr_rate', 'intr_rate2', 'save_trm']].copy()
+            
+            df_merged = df_base.merge(product_info, on='fin_prdt_cd', how='left')
         else:
             df_merged = df_base.copy()
             df_merged['intr_rate'] = 0
