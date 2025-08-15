@@ -324,6 +324,11 @@ def main():
             format="%d"
         )
         st.sidebar.write(f"💰 **{savings_amount//10000}만원** ({savings_amount:,}원) 일시예치")
+        
+        # 선택된 기간 표시
+        period_map = {"전체": 12, "3개월": 3, "6개월": 6, "1년": 12, "2년": 24, "3년": 36}
+        months = period_map.get(period, 12)
+        st.sidebar.write(f"📊 **예치 기간**: {period} ({months}개월)")
     else:
         st.sidebar.subheader("💰 매월 저축 금액")
         savings_amount = st.sidebar.number_input(
@@ -335,6 +340,12 @@ def main():
             format="%d"
         )
         st.sidebar.write(f"💰 **{savings_amount//10000}만원** ({savings_amount:,}원) / 월")
+        
+        # 선택된 기간에 따른 총 원금 계산 및 표시
+        period_map = {"전체": 12, "3개월": 3, "6개월": 6, "1년": 12, "2년": 24, "3년": 36}
+        months = period_map.get(period, 12)
+        total_principal = savings_amount * months
+        st.sidebar.write(f"📊 **총 원금** ({period}): **{total_principal//10000:,}만원** ({total_principal:,}원)")
     
     # 선택된 상품 수익 계산 표시
     if 'selected_product' in st.session_state:
