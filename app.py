@@ -105,8 +105,8 @@ class FinanceAPI:
         
         return all_products if all_products['result']['baseList'] else None
 
-def calculate_after_tax_amount(monthly_amount, annual_rate, months=12, tax_rate=0.154, interest_type="단리", method="standard"):
-    """정기적금 세후 수령액 계산 - 기본값 단리"""
+def calculate_after_tax_amount(monthly_amount, annual_rate, months=12, tax_rate=0.154, interest_type="단리"):
+    """정기적금 세후 수령액 계산 - 상품의 이자계산방법에 따라 자동 계산"""
     total_principal = monthly_amount * months
     
     # 명시적으로 단리를 기본값으로 처리
@@ -114,31 +114,21 @@ def calculate_after_tax_amount(monthly_amount, annual_rate, months=12, tax_rate=
         interest_type = "단리"
     
     if interest_type == "단리":
+        # 단리 계산
         total_interest = 0
         for month in range(1, months + 1):
             remaining_months = months - month + 1
             simple_interest = monthly_amount * (annual_rate / 100) * (remaining_months / 12)
             total_interest += simple_interest
     else:
-        if method == "moneta_style":
-            monthly_rate = annual_rate / 100 / 12
-            running_balance = 0
-            
-            for month in range(1, months + 1):
-                running_balance += monthly_amount
-                if month > 1:
-                    running_balance = running_balance * (1 + monthly_rate)
-            
-            total_amount = running_balance * (1 + monthly_rate)
-            total_interest = total_amount - total_principal
-        else:
-            monthly_rate = annual_rate / 100 / 12
-            total_interest = 0
-            
-            for month in range(1, months + 1):
-                remaining_months = months - month + 1
-                compound_interest = monthly_amount * ((1 + monthly_rate) ** remaining_months - 1)
-                total_interest += compound_interest
+        # 복리 계산 (표준 월복리 방식)
+        monthly_rate = annual_rate / 100 / 12
+        total_interest = 0
+        
+        for month in range(1, months + 1):
+            remaining_months = months - month + 1
+            compound_interest = monthly_amount * ((1 + monthly_rate) ** remaining_months - 1)
+            total_interest += compound_interest
     
     tax = total_interest * tax_rate
     after_tax_amount = total_principal + total_interest - tax
@@ -287,15 +277,6 @@ def main():
     savings_amount_man = savings_amount // 10000
     st.sidebar.write(f"💰 **{savings_amount_man}만원** / 월")
     
-    st.sidebar.subheader("📊 계산 방식")
-    calculation_method = st.sidebar.radio(
-        "이자 계산 방식을 선택하세요",
-        options=["standard", "moneta_style"],
-        format_func=lambda x: "표준 월복리 방식" if x == "standard" else "모네타 유사 방식",
-        index=1,
-        help="표준 방식: 일반적인 금융권 계산 방식\n모네타 방식: 모네타 사이트와 유사한 계산 방식"
-    )
-    
     if 'selected_product' in st.session_state:
         selected = st.session_state.selected_product
         
@@ -310,8 +291,7 @@ def main():
             savings_amount, 
             selected['최고금리_숫자'], 
             savings_period, 
-            interest_type=product_interest_type,
-            method=calculation_method
+            interest_type=product_interest_type
         )
         
         st.sidebar.markdown(f"""
