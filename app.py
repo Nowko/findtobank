@@ -496,21 +496,22 @@ def main():
                            unsafe_allow_html=True)
             
             with col3:
-                # 상세 정보를 expander로 표시 (스크롤 대신)
+                # 상세 정보를 expander로 표시
                 with st.expander("📋 상세 정보", expanded=True):
-                    # 가입방법
-                    st.markdown("**📝 가입방법**")
-                    st.write(row['가입방법'])
+                    # 가입방법과 가입대상을 같은 행에 배치
+                    col_method, col_target = st.columns(2)
+                    
+                    with col_method:
+                        st.markdown("**📝 가입방법**")
+                        st.write(row['가입방법'])
+                    
+                    with col_target:
+                        st.markdown("**👥 가입대상**")
+                        st.write(row['가입대상'])
                     
                     st.markdown("---")
                     
-                    # 가입대상  
-                    st.markdown("**👥 가입대상**")
-                    st.write(row['가입대상'])
-                    
-                    st.markdown("---")
-                    
-                    # 우대조건
+                    # 우대조건은 전체 폭 사용
                     st.markdown("**🎁 우대조건**")
                     special_condition = row['우대조건'] if row['우대조건'] and row['우대조건'].strip() else '해당없음'
                     st.write(special_condition)
