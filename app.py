@@ -335,9 +335,7 @@ def main():
         }
         savings_period = period_map.get(period, 12)
         
-        product_interest_type = selected.get('이자계산방법', '단리')  # 기본값을 '단리'로 설정
-        
-        # 상품 타입에 맞는 계산
+        # 상품의 이자계산방법에 맞는 계산
         calc_result = calculate_after_tax_amount(
             savings_amount,  # 예금: 일시예치금, 적금: 월적립금
             selected['최고금리_숫자'], 
@@ -345,6 +343,60 @@ def main():
             interest_type=product_interest_type,
             product_type=product_type
         )
+        
+        # 예금의 경우 기간 정보 처리
+        if product_type == "예금":
+            # 상품명에서 기간 정보 추출 시도
+            product_name = selected.get('상품명', '')
+            
+            # 상품명에서 기간 정보 추출
+            import re
+            period_patterns = [
+                (r'(\d+)개월', lambda m: int(m.group(1))),
+                (r'(\d+)년', lambda m: int(m.group(1)) * 12),
+                (r'(\d+)Y', lambda m: int(m.group(1)) * 12),
+                (r'(\d+)M', lambda m: int(m.group(1))),
+            ]
+            
+            detected_months = None
+            for pattern, converter in period_patterns:
+                match = re.search(pattern, product_name)
+                if match:
+                    detected_months = converter(match)
+                    break
+            
+            # save_trm이 있으면 사용, 없으면 상품명에서 추출한 기간 사용
+            actual_months = None
+            if 'save_trm' in selected and selected['save_trm'] and not pd.isna(selected['save_trm']):
+                try:
+                    actual_months = int(float(selected['save_trm']))
+                except (ValueError, TypeError):
+                    pass
+            
+            if not actual_months and detected_months:
+                actual_months = detected_months
+            
+            if actual_months:
+                if actual_months == 1:
+                    period_display = "1개월"
+                elif actual_months == 3:
+                    period_display = "3개월"
+                elif actual_months == 6:
+                    period_display = "6개월"
+                elif actual_months == 12:
+                    period_display = "1년"
+                elif actual_months == 24:
+                    period_display = "2년"
+                elif actual_months == 36:
+                    period_display = "3년"
+                elif actual_months == 48:
+                    period_display = "4년"
+                elif actual_months == 60:
+                    period_display = "5년"
+                else:
+                    period_display = f"{actual_months}개월"
+            else:
+                period_display = period
         
         st.sidebar.markdown(f"""
         <div style="
