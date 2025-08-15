@@ -422,7 +422,7 @@ def main():
         return
     
     # 메트릭 표시
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3 = st.columns(3)
     with col1:
         st.metric("총 상품 수", f"{len(df_products)}개")
     with col2:
@@ -431,19 +431,6 @@ def main():
     with col3:
         avg_rate = df_products['최고금리_숫자'].mean()
         st.metric("평균 금리", f"{avg_rate:.2f}%")
-    with col4:
-        # 데이터 업데이트 시간 또는 현재 시간 표시
-        last_update = st.session_state.get('last_update')
-        if last_update:
-            update_time = last_update.strftime("%H:%M")
-            st.metric("업데이트", update_time)
-        else:
-            # 데이터가 없을 때는 현재 시간
-            import time as time_module
-            current_timestamp = time_module.time()
-            current_time = datetime.fromtimestamp(current_timestamp)
-            update_time = current_time.strftime("%H:%M")
-            st.metric("현재시간", update_time)
     
     # 탭 구성
     tab1, tab2, tab3 = st.tabs(["📋 전체 상품", "🏆 TOP 10", "📊 분석"])
@@ -578,11 +565,8 @@ def main():
         distribution = df_products['금리구간'].value_counts()
         st.bar_chart(distribution)
     
-    # 성능 정보 및 시간 디버깅
+    # 성능 정보
     if st.sidebar.checkbox("성능 정보 표시"):
-        current_local = datetime.now()
-        current_utc = datetime.utcnow()
-        
         st.sidebar.info(f"""
         **최적화 적용**
         - ✅ 병렬 API 호출
@@ -592,11 +576,6 @@ def main():
         
         **로딩 시간**: ~3-5초
         **캐시 히트시**: ~1초 이내
-        
-        **시간 디버깅**
-        - 서버 로컬: {current_local.strftime("%H:%M:%S")}
-        - 서버 UTC: {current_utc.strftime("%H:%M:%S")}
-        - UTC+9: {(current_utc + timedelta(hours=9)).strftime("%H:%M:%S")}
         """)
 
 if __name__ == "__main__":
