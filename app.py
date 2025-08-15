@@ -1,94 +1,56 @@
-with tab2:
-        st.subheader("🏆 TOP 10 고금리 상품")
-        top10 = df_products.head(10)
-        
-        for idx, row in top10.iterrows():
-            col1, col2 = st.columns([3, 1])
-            with col1:
-                st.write(f"**{idx+1}위. {row['금융기관']}**")
-                st.write(f"{row['상품명']}")
-                st.caption(f"{row['가입방법']} | {row['가입대상']}")
-            with col2:
-                st.metric("최고금리", row['최고금리'])
-            st.divider()
-    
-    with tab3:
-        st.subheader("📊 금리 분석")
-        
-        # 금융기관별 최고금리
-        bank_rates = df_products.groupby('금융기관')['최고금리_숫자'].max().sort_values(ascending=False).head(10)
-        st.bar_chart(bank_rates)
-        
-        # 금리 구간별 분포
-        st.subheader("금리 구간별 상품 분포")
-        bins = [0, 2, 3, 4, 5, 100]
-        labels = ['0-2%', '2-3%', '3-4%', '4-5%', '5% 이상']
-        df_products['금리구간'] = pd.cut(df_products['최고금리_숫자'], bins=bins, labels=labels)
-        distribution = df_products['금리구간'].value_counts()
-        st.bar_chart(distribution)
-
-if __name__ == "__main__":
-    main()import streamlit as st
+import streamlit as st
 import pandas as pd
 import requests
 import json
 from datetime import datetime
 import time
 
-# 페이지 설정
 st.set_page_config(
     page_title="금융상품 비교센터",
     page_icon="🏦",
     layout="wide"
 )
 
-# 커스텀 CSS
 st.markdown("""
 <style>
-    .main-header {
-        text-align: center;
-        padding: 2rem 0;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        border-radius: 15px;
-        margin-bottom: 2rem;
-    }
-    
-    .api-success {
-        background-color: #d4edda;
-        color: #155724;
-        padding: 15px;
-        border-radius: 10px;
-        border-left: 5px solid #28a745;
-        margin: 15px 0;
-    }
-    
-    .api-error {
-        background-color: #f8d7da;
-        color: #721c24;
-        padding: 15px;
-        border-radius: 10px;
-        border-left: 5px solid #dc3545;
-        margin: 15px 0;
-    }
+.main-header {
+    text-align: center;
+    padding: 2rem 0;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 15px;
+    margin-bottom: 2rem;
+}
+.api-success {
+    background-color: #d4edda;
+    color: #155724;
+    padding: 15px;
+    border-radius: 10px;
+    border-left: 5px solid #28a745;
+    margin: 15px 0;
+}
+.api-error {
+    background-color: #f8d7da;
+    color: #721c24;
+    padding: 15px;
+    border-radius: 10px;
+    border-left: 5px solid #dc3545;
+    margin: 15px 0;
+}
 </style>
 """, unsafe_allow_html=True)
 
-# 금융감독원 API 클래스
 class FinanceAPI:
     def __init__(self, api_key):
         self.api_key = api_key
         self.base_url = "http://finlife.fss.or.kr/finlifeapi"
         
     def get_saving_products(self):
-        """적금 상품 조회 (모든 기관 유형, 여러 페이지)"""
         all_products = {'result': {'baseList': [], 'optionList': []}}
-        
-        # 다양한 기관 유형 조회
-        org_types = ['020000', '030300', '030201', '020201']  # 은행, 저축은행, 신협, 종금사
+        org_types = ['020000', '030300', '030201', '020201']
         
         for org_type in org_types:
-            for page in range(1, 6):  # 최대 5페이지까지 조회
+            for page in range(1, 6):
                 url = f"{self.base_url}/savingProductsSearch.json"
                 params = {
                     'auth': self.api_key,
@@ -105,8 +67,8 @@ class FinanceAPI:
                             if data['result'].get('optionList'):
                                 all_products['result']['optionList'].extend(data['result']['optionList'])
                         else:
-                            break  # 더 이상 데이터가 없으면 중단
-                    time.sleep(0.1)  # API 요청 간격
+                            break
+                    time.sleep(0.1)
                 except Exception as e:
                     st.warning(f"기관유형 {org_type}, 페이지 {page} 조회 실패: {str(e)}")
                     continue
@@ -114,14 +76,11 @@ class FinanceAPI:
         return all_products if all_products['result']['baseList'] else None
     
     def get_deposit_products(self):
-        """예금 상품 조회 (모든 기관 유형, 여러 페이지)"""
         all_products = {'result': {'baseList': [], 'optionList': []}}
-        
-        # 다양한 기관 유형 조회
-        org_types = ['020000', '030300', '030201', '020201']  # 은행, 저축은행, 신협, 종금사
+        org_types = ['020000', '030300', '030201', '020201']
         
         for org_type in org_types:
-            for page in range(1, 6):  # 최대 5페이지까지 조회
+            for page in range(1, 6):
                 url = f"{self.base_url}/depositProductsSearch.json"
                 params = {
                     'auth': self.api_key,
@@ -138,8 +97,8 @@ class FinanceAPI:
                             if data['result'].get('optionList'):
                                 all_products['result']['optionList'].extend(data['result']['optionList'])
                         else:
-                            break  # 더 이상 데이터가 없으면 중단
-                    time.sleep(0.1)  # API 요청 간격
+                            break
+                    time.sleep(0.1)
                 except Exception as e:
                     st.warning(f"기관유형 {org_type}, 페이지 {page} 조회 실패: {str(e)}")
                     continue
@@ -147,58 +106,36 @@ class FinanceAPI:
         return all_products if all_products['result']['baseList'] else None
 
 def calculate_after_tax_amount(monthly_amount, annual_rate, months=12, tax_rate=0.154, interest_type="복리", method="standard"):
-    """정기적금 세후 수령액 계산 (매월 적립 방식) - 단리/복리 구분"""
-    
     total_principal = monthly_amount * months
     
-    # 상품의 이자계산방법에 따라 계산 방식 결정
     if interest_type == "단리":
-        # 단리 계산
         total_interest = 0
-        
-        # 각 월 적립금의 단리 이자 계산
         for month in range(1, months + 1):
             remaining_months = months - month + 1
-            # 단리: 원금 × 연이자율 × (기간/12)
             simple_interest = monthly_amount * (annual_rate / 100) * (remaining_months / 12)
             total_interest += simple_interest
-            
     else:
-        # 복리 계산 (기본값)
         if method == "moneta_style":
-            # 모네타 유사 방식 (누적복리)
             monthly_rate = annual_rate / 100 / 12
             running_balance = 0
             
             for month in range(1, months + 1):
-                # 매월 적립
                 running_balance += monthly_amount
-                
-                # 기존 잔액에 대한 이자 계산 (2개월째부터)
                 if month > 1:
                     running_balance = running_balance * (1 + monthly_rate)
             
-            # 마지막 달 이자 적용
             total_amount = running_balance * (1 + monthly_rate)
             total_interest = total_amount - total_principal
-            
         else:
-            # 표준 월복리 방식 (기존 방식)
             monthly_rate = annual_rate / 100 / 12
             total_interest = 0
             
-            # 매월 적립하는 정기적금 복리 계산
             for month in range(1, months + 1):
-                # 각 월 적립금이 적립되어 있는 기간
                 remaining_months = months - month + 1
-                # 해당 월 적립금의 이자 (복리)
                 compound_interest = monthly_amount * ((1 + monthly_rate) ** remaining_months - 1)
                 total_interest += compound_interest
     
-    # 세금 계산 (이자소득세 15.4%)
     tax = total_interest * tax_rate
-    
-    # 세후 수령액
     after_tax_amount = total_principal + total_interest - tax
     
     return {
@@ -211,7 +148,6 @@ def calculate_after_tax_amount(monthly_amount, annual_rate, months=12, tax_rate=
     }
 
 def process_data(api_data, period_filter=None):
-    """API 데이터 처리 - 가입기간 필터링 포함"""
     if not api_data or not api_data.get('result'):
         return pd.DataFrame()
     
@@ -223,9 +159,7 @@ def process_data(api_data, period_filter=None):
     
     df_base = pd.DataFrame(base_list)
     
-    # 가입기간 필터링 (API 데이터 자체에서 필터링)
     if period_filter and period_filter != "전체":
-        # 상품명이나 기타 필드에서 가입기간 정보 추출하여 필터링
         period_keywords = {
             "3개월": ["3개월", "3M", "90일"],
             "6개월": ["6개월", "6M", "180일"],
@@ -238,7 +172,6 @@ def process_data(api_data, period_filter=None):
         
         if period_filter in period_keywords:
             keywords = period_keywords[period_filter]
-            # 상품명, 가입대상, 우대조건 등에서 해당 기간 키워드 포함 상품만 필터링
             mask = df_base['fin_prdt_nm'].str.contains('|'.join(keywords), na=False, case=False)
             if 'join_member' in df_base.columns:
                 mask |= df_base['join_member'].str.contains('|'.join(keywords), na=False, case=False)
@@ -250,25 +183,17 @@ def process_data(api_data, period_filter=None):
     if option_list:
         df_options = pd.DataFrame(option_list)
         
-        # 옵션 데이터에서도 가입기간 필터링
         if period_filter and period_filter != "전체":
-            # 옵션 데이터에서 save_trm(저축기간) 필드로 필터링
             if 'save_trm' in df_options.columns:
                 period_map = {
-                    "3개월": "3",
-                    "6개월": "6", 
-                    "1년": "12",
-                    "2년": "24",
-                    "3년": "36",
-                    "4년": "48",
-                    "5년": "60"
+                    "3개월": "3", "6개월": "6", "1년": "12",
+                    "2년": "24", "3년": "36", "4년": "48", "5년": "60"
                 }
                 
                 if period_filter in period_map:
                     target_months = period_map[period_filter]
                     df_options = df_options[df_options['save_trm'] == target_months]
         
-        # 필터링된 기준 상품과 매칭되는 옵션만 유지
         df_options = df_options[df_options['fin_prdt_cd'].isin(df_base['fin_prdt_cd'])]
         
         if not df_options.empty:
@@ -286,7 +211,6 @@ def process_data(api_data, period_filter=None):
         df_merged['intr_rate'] = 0
         df_merged['intr_rate2'] = 0
     
-    # 데이터 정리
     result_df = pd.DataFrame({
         '금융기관': df_merged.get('kor_co_nm', ''),
         '상품명': df_merged.get('fin_prdt_nm', ''),
@@ -295,13 +219,12 @@ def process_data(api_data, period_filter=None):
         '가입방법': df_merged.get('join_way', ''),
         '우대조건': df_merged.get('spcl_cnd', ''),
         '가입대상': df_merged.get('join_member', ''),
-        '이자계산방법': df_merged.get('intr_rate_type_nm', '복리')  # 이자계산방법 추가
+        '이자계산방법': df_merged.get('intr_rate_type_nm', '복리')
     })
     
     return result_df.sort_values('최고금리_숫자', ascending=False).reset_index(drop=True)
 
 def main():
-    # 헤더
     st.markdown("""
     <div class="main-header">
         <h1>🏦 금융상품 비교센터</h1>
@@ -309,10 +232,8 @@ def main():
     </div>
     """, unsafe_allow_html=True)
     
-    # API 키
     api_key = "9eef9d0d97316bd23093d3317c1732af"
     
-    # 사이드바
     st.sidebar.header("🔍 상품 검색")
     
     col1, col2 = st.sidebar.columns(2)
@@ -323,13 +244,10 @@ def main():
     
     period = st.sidebar.selectbox("가입기간", ["전체", "3개월", "6개월", "1년", "2년", "3년", "4년", "5년"])
     
-    # 금융기관 유형 선택
     st.sidebar.subheader("🏛️ 금융기관 유형")
     
-    # 버튼을 3개 행으로 배치
     col1, col2, col3 = st.sidebar.columns(3)
     
-    # 현재 선택된 필터 상태 확인
     if 'bank_type_filter' not in st.session_state:
         st.session_state.bank_type_filter = None
     
@@ -343,10 +261,8 @@ def main():
         if st.button("🏪 저축은행", use_container_width=True, key="btn_savings"):
             st.session_state.bank_type_filter = "저축은행"
     
-    # 선택된 기관 유형 사용
     bank_type_filter = st.session_state.bank_type_filter
     
-    # 저축 금액 입력
     st.sidebar.subheader("💰 매월 저축 금액")
     savings_amount = st.sidebar.number_input(
         "매월 적립할 금액 (원)", 
@@ -357,38 +273,27 @@ def main():
         format="%d"
     )
     
-    # 만원 단위로 표시
     savings_amount_man = savings_amount // 10000
     st.sidebar.write(f"💰 **{savings_amount_man}만원** / 월")
     
-    # 계산 방식 선택
     st.sidebar.subheader("📊 계산 방식")
     calculation_method = st.sidebar.radio(
         "이자 계산 방식을 선택하세요",
         options=["standard", "moneta_style"],
         format_func=lambda x: "표준 월복리 방식" if x == "standard" else "모네타 유사 방식",
-        index=1,  # 기본값: 모네타 유사 방식
+        index=1,
         help="표준 방식: 일반적인 금융권 계산 방식\n모네타 방식: 모네타 사이트와 유사한 계산 방식"
     )
     
-    # 선택된 상품의 수익 계산 표시 (사이드바)
     if 'selected_product' in st.session_state:
         selected = st.session_state.selected_product
         
-        # 가입기간을 개월 수로 변환
         period_map = {
-            "전체": 12,
-            "3개월": 3,
-            "6개월": 6,
-            "1년": 12,
-            "2년": 24,
-            "3년": 36,
-            "4년": 48,
-            "5년": 60
+            "전체": 12, "3개월": 3, "6개월": 6, "1년": 12,
+            "2년": 24, "3년": 36, "4년": 48, "5년": 60
         }
         savings_period = period_map.get(period, 12)
         
-        # 정기적금 계산 - 상품의 이자계산방법 적용
         product_interest_type = selected.get('이자계산방법', '복리')
         calc_result = calculate_after_tax_amount(
             savings_amount, 
@@ -398,7 +303,6 @@ def main():
             method=calculation_method
         )
         
-        # 세후 수령액을 크고 잘 보이게 표시 (매월 저축 금액 바로 아래)
         st.sidebar.markdown(f"""
         <div style="
             background: linear-gradient(135deg, #4CAF50, #45a049);
@@ -435,10 +339,8 @@ def main():
     if st.sidebar.button("📊 실시간 데이터 조회", type="primary"):
         st.session_state.refresh_data = True
     
-    # API 서비스
     finance_api = FinanceAPI(api_key)
     
-    # 데이터 조회
     if st.session_state.get('refresh_data', False) or 'df_products' not in st.session_state or st.session_state.get('last_period') != period:
         st.session_state.refresh_data = False
         st.session_state.last_period = period
@@ -451,21 +353,19 @@ def main():
             
             if api_data:
                 st.markdown('<div class="api-success">✅ API 연결 성공!</div>', unsafe_allow_html=True)
-                df_products = process_data(api_data, period)  # 가입기간 필터 적용
+                df_products = process_data(api_data, period)
                 st.session_state.df_products = df_products
                 st.session_state.last_update = datetime.now()
             else:
                 st.markdown('<div class="api-error">❌ API 호출 실패</div>', unsafe_allow_html=True)
                 return
     
-    # 데이터 가져오기
     df_products = st.session_state.get('df_products', pd.DataFrame())
     
     if df_products.empty:
         st.warning("데이터가 없습니다. 실시간 데이터 조회 버튼을 클릭해주세요.")
         return
     
-    # 메트릭 표시
     col1, col2, col3, col4 = st.columns(4)
     with col1:
         st.metric("총 상품 수", f"{len(df_products)}개")
@@ -478,32 +378,24 @@ def main():
     with col4:
         st.metric("업데이트", datetime.now().strftime("%H:%M"))
     
-    # 탭
     tab1, tab2, tab3 = st.tabs(["📋 전체 상품", "🏆 TOP 10", "📊 분석"])
     
     with tab1:
         st.subheader("전체 상품 목록")
         
-        # 필터링
         filtered_df = df_products.copy()
         
-        # 지역 필터링
         if region != "전체":
             filtered_df = filtered_df[filtered_df['금융기관'].str.contains(region, na=False)]
         
-        # 금융기관 유형 필터링
         if bank_type_filter == "은행":
-            # "은행"이 포함되지만 "저축은행"은 제외
             filtered_df = filtered_df[
                 filtered_df['금융기관'].str.contains('은행', na=False) & 
                 ~filtered_df['금융기관'].str.contains('저축은행', na=False)
             ]
         elif bank_type_filter == "저축은행":
-            # "저축은행"이 포함된 기관만
             filtered_df = filtered_df[filtered_df['금융기관'].str.contains('저축은행', na=False)]
-        # 전체인 경우 필터링 안 함
         
-        # 필터 상태 표시
         active_filters = []
         if region != "전체":
             active_filters.append(f"지역: {region}")
@@ -517,17 +409,14 @@ def main():
         else:
             st.info(f"📊 전체 상품 표시 중 ({len(filtered_df)}개)")
         
-        # 가입기간 필터링 안내
         if period != "전체":
             st.info(f"💡 {period} 상품만 표시됩니다. 가입기간을 변경하면 상품 목록이 업데이트됩니다.")
         
-        # 현재 필터 상태를 사이드바에 표시
         if bank_type_filter:
             st.sidebar.info(f"현재 필터: {bank_type_filter}")
         else:
             st.sidebar.info("현재 필터: 전체")
         
-        # 페이지네이션
         items_per_page = 10
         total_items = len(filtered_df)
         total_pages = (total_items + items_per_page - 1) // items_per_page
@@ -537,20 +426,16 @@ def main():
         
         current_page = st.session_state.current_page
         
-        # 페이지 범위 체크
         if current_page > total_pages and total_pages > 0:
             st.session_state.current_page = 1
             current_page = 1
         
-        # 현재 페이지 데이터
         start_idx = (current_page - 1) * items_per_page
         end_idx = start_idx + items_per_page
         page_data = filtered_df.iloc[start_idx:end_idx]
         
-        # 정보 표시
         st.info(f"📄 {start_idx + 1} ~ {min(end_idx, total_items)}번째 상품 (전체 {total_items}개)")
         
-        # 테이블 표시 (클릭 가능한 상품명으로 변경)
         st.subheader("📋 상품 목록")
         for idx, row in page_data.iterrows():
             col1, col2, col3 = st.columns([3, 3, 4])
@@ -560,16 +445,13 @@ def main():
                 st.markdown(f"<span style='color: #1f77b4; font-weight: bold; font-size: 16px;'>{row['상품명']}</span>", unsafe_allow_html=True)
             
             with col2:
-                # 클릭 가능한 금리 버튼 - 필터 상태를 유지하면서 상품 선택
                 if st.button(f"📈 {row['최고금리']}", key=f"rate_{idx}_{row['금융기관']}_{bank_type_filter}", use_container_width=True, type="primary"):
                     st.session_state.selected_product = row
-                    # 필터 상태 유지
                     st.session_state.bank_type_filter = bank_type_filter
                     st.rerun()
                 st.markdown(f"<span style='color: #ff6b35; font-weight: bold;'>가입방법: {row['가입방법']}</span>", unsafe_allow_html=True)
             
             with col3:
-                # 이자계산방법 표시 추가
                 interest_method = row.get('이자계산방법', '복리')
                 method_color = "#28a745" if interest_method == "복리" else "#6c757d"
                 st.markdown(f"<span style='color: {method_color}; font-weight: bold;'>🔢 {interest_method}</span>", unsafe_allow_html=True)
@@ -580,11 +462,9 @@ def main():
             
             st.divider()
         
-        # 페이지 버튼들
         if total_pages > 1:
-            cols = st.columns(min(total_pages + 2, 10))  # 최대 10개 컬럼
+            cols = st.columns(min(total_pages + 2, 10))
             
-            # 이전 버튼
             with cols[0]:
                 if current_page > 1:
                     if st.button("◀ 이전"):
@@ -593,7 +473,6 @@ def main():
                 else:
                     st.button("◀ 이전", disabled=True)
             
-            # 페이지 번호들
             page_start = max(1, current_page - 3)
             page_end = min(total_pages + 1, page_start + 7)
             
@@ -609,7 +488,6 @@ def main():
                                 st.rerun()
                     col_idx += 1
             
-            # 다음 버튼
             with cols[-1]:
                 if current_page < total_pages:
                     if st.button("다음 ▶"):
@@ -617,3 +495,33 @@ def main():
                         st.rerun()
                 else:
                     st.button("다음 ▶", disabled=True)
+    
+    with tab2:
+        st.subheader("🏆 TOP 10 고금리 상품")
+        top10 = df_products.head(10)
+        
+        for idx, row in top10.iterrows():
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                st.write(f"**{idx+1}위. {row['금융기관']}**")
+                st.write(f"{row['상품명']}")
+                st.caption(f"{row['가입방법']} | {row['가입대상']}")
+            with col2:
+                st.metric("최고금리", row['최고금리'])
+            st.divider()
+    
+    with tab3:
+        st.subheader("📊 금리 분석")
+        
+        bank_rates = df_products.groupby('금융기관')['최고금리_숫자'].max().sort_values(ascending=False).head(10)
+        st.bar_chart(bank_rates)
+        
+        st.subheader("금리 구간별 상품 분포")
+        bins = [0, 2, 3, 4, 5, 100]
+        labels = ['0-2%', '2-3%', '3-4%', '4-5%', '5% 이상']
+        df_products['금리구간'] = pd.cut(df_products['최고금리_숫자'], bins=bins, labels=labels)
+        distribution = df_products['금리구간'].value_counts()
+        st.bar_chart(distribution)
+
+if __name__ == "__main__":
+    main()
