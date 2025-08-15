@@ -472,7 +472,7 @@ def main():
         
         # 상품 목록 표시 - 열 간격 대폭 최적화
         for idx, row in page_data.iterrows():
-            col1, col2, col3 = st.columns([1.25, 0.75, 8])  # 기관명:금리:설명 = 1.25:0.75:8
+            col1, col2 = st.columns([2, 8])  # 기관명:상세정보 = 2:8
             
             with col1:
                 st.write(f"🏛️ **{row['금융기관']}**")
@@ -484,22 +484,23 @@ def main():
                            unsafe_allow_html=True)
             
             with col2:
-                if st.button(f"📈 {row['최고금리']}", key=f"rate_{idx}", 
-                            use_container_width=True, type="primary"):
-                    st.session_state.selected_product = row
-                    st.rerun()
+                # 금리, 이자방식, 가입방법, 가입대상을 2x2로 배치
+                col_rate, col_target = st.columns(2)
                 
-                # 이자계산방식을 더 작게 표시
-                interest_method = row.get('이자계산방법', '단리')
-                method_color = "#28a745" if interest_method == "복리" else "#6c757d"
-                st.markdown(f"<span style='color: {method_color}; font-weight: bold; font-size: 11px;'>{interest_method}</span>", 
-                           unsafe_allow_html=True)
-            
-            with col3:
-                # 가입방법과 가입대상을 항상 표시 (미리보기)
-                col_method, col_target = st.columns(2)
-                
-                with col_method:
+                with col_rate:
+                    # 금리 버튼
+                    if st.button(f"📈 {row['최고금리']}", key=f"rate_{idx}", 
+                                use_container_width=True, type="primary"):
+                        st.session_state.selected_product = row
+                        st.rerun()
+                    
+                    # 이자계산방식
+                    interest_method = row.get('이자계산방법', '단리')
+                    method_color = "#28a745" if interest_method == "복리" else "#6c757d"
+                    st.markdown(f"<span style='color: {method_color}; font-weight: bold; font-size: 12px;'>🔢 {interest_method}</span>", 
+                               unsafe_allow_html=True)
+                    
+                    # 가입방법
                     st.markdown("**📝 가입방법**")
                     join_way = row['가입방법']
                     if len(join_way) > 15:
@@ -507,13 +508,14 @@ def main():
                     st.write(join_way)
                 
                 with col_target:
+                    # 가입대상
                     st.markdown("**👥 가입대상**")
                     join_member = row['가입대상']
-                    if len(join_member) > 20:
-                        join_member = join_member[:20] + "..."
+                    if len(join_member) > 30:
+                        join_member = join_member[:30] + "..."
                     st.write(join_member)
                 
-                # 우대조건은 expander 안에 숨김
+                # 우대조건은 전체 폭에서 expander로
                 with st.expander("🎁 우대조건 보기", expanded=False):
                     special_condition = row['우대조건'] if row['우대조건'] and row['우대조건'].strip() else '해당없음'
                     st.write(special_condition)
