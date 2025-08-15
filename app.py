@@ -105,7 +105,7 @@ class FinanceAPI:
         
         return all_products if all_products['result']['baseList'] else None
 
-def calculate_after_tax_amount(monthly_amount, annual_rate, months=12, tax_rate=0.154, interest_type="복리", method="standard"):
+def calculate_after_tax_amount(monthly_amount, annual_rate, months=12, tax_rate=0.154, interest_type="단리", method="standard"):
     total_principal = monthly_amount * months
     
     if interest_type == "단리":
@@ -219,7 +219,7 @@ def process_data(api_data, period_filter=None):
         '가입방법': df_merged.get('join_way', ''),
         '우대조건': df_merged.get('spcl_cnd', ''),
         '가입대상': df_merged.get('join_member', ''),
-        '이자계산방법': df_merged.get('intr_rate_type_nm', '복리')
+        '이자계산방법': df_merged.get('intr_rate_type_nm', '단리')  # 기본값을 '단리'로 설정
     })
     
     return result_df.sort_values('최고금리_숫자', ascending=False).reset_index(drop=True)
@@ -294,7 +294,7 @@ def main():
         }
         savings_period = period_map.get(period, 12)
         
-        product_interest_type = selected.get('이자계산방법', '복리')
+        product_interest_type = selected.get('이자계산방법', '단리')  # 기본값을 '단리'로 설정
         calc_result = calculate_after_tax_amount(
             savings_amount, 
             selected['최고금리_숫자'], 
@@ -452,7 +452,7 @@ def main():
                 st.markdown(f"<span style='color: #ff6b35; font-weight: bold;'>가입방법: {row['가입방법']}</span>", unsafe_allow_html=True)
             
             with col3:
-                interest_method = row.get('이자계산방법', '복리')
+                interest_method = row.get('이자계산방법', '단리')
                 method_color = "#28a745" if interest_method == "복리" else "#6c757d"
                 st.markdown(f"<span style='color: {method_color}; font-weight: bold;'>🔢 {interest_method}</span>", unsafe_allow_html=True)
                 
