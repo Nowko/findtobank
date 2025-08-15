@@ -292,23 +292,22 @@ def main():
     
     period = st.sidebar.selectbox("가입기간", ["전체", "3개월", "6개월", "1년", "2년", "3년"])
     
-    # 금융기관 유형 필터
+    # 금융기관 유형 필터 - 새로 수정된 부분
     st.sidebar.subheader("🏛️ 금융기관 유형")
     
-    # 텍스트 길이를 맞춰서 버튼 크기 균등화
     col1, col2, col3 = st.sidebar.columns(3)
     
     if 'bank_type_filter' not in st.session_state:
         st.session_state.bank_type_filter = None
     
     with col1:
-        if st.button("🏦 전체", use_container_width=True, key="btn_all"):
+        if st.button("🏦전체", use_container_width=True, key="btn_all"):
             st.session_state.bank_type_filter = None
     with col2:
-        if st.button("🏛️ 은행", use_container_width=True, key="btn_bank"):
+        if st.button("🏛️은행", use_container_width=True, key="btn_bank"):
             st.session_state.bank_type_filter = "은행"
     with col3:
-        if st.button("🏪저축은행", use_container_width=True, key="btn_savings"):
+        if st.button("🏪저축", use_container_width=True, key="btn_savings"):
             st.session_state.bank_type_filter = "저축은행"
     
     bank_type_filter = st.session_state.bank_type_filter
@@ -410,7 +409,6 @@ def main():
         
         if df_products is not None and not df_products.empty:
             st.session_state.df_products = df_products
-            st.session_state.last_update = datetime.now()
             st.success(f"✅ {len(df_products)}개 상품을 빠르게 불러왔습니다!")
         else:
             st.error("❌ 데이터를 가져올 수 없습니다. 잠시 후 다시 시도해주세요.")
