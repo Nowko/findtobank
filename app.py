@@ -105,30 +105,46 @@ class FinanceAPI:
         
         return all_products if all_products['result']['baseList'] else None
 
-def calculate_after_tax_amount(monthly_amount, annual_rate, months=12, tax_rate=0.154, interest_type="단리"):
-    """정기적금 세후 수령액 계산 - 상품의 이자계산방법에 따라 자동 계산"""
-    total_principal = monthly_amount * months
+def calculate_after_tax_amount(monthly_amount, annual_rate, months=12, tax_rate=0.154, interest_type="단리", product_type="적금"):
+    """세후 수령액 계산 - 적금/예금 구분하여 계산"""
     
     # 명시적으로 단리를 기본값으로 처리
     if not interest_type or interest_type == "" or pd.isna(interest_type):
         interest_type = "단리"
     
-    if interest_type == "단리":
-        # 단리 계산
-        total_interest = 0
-        for month in range(1, months + 1):
-            remaining_months = months - month + 1
-            simple_interest = monthly_amount * (annual_rate / 100) * (remaining_months / 12)
-            total_interest += simple_interest
-    else:
-        # 복리 계산 (표준 월복리 방식)
-        monthly_rate = annual_rate / 100 / 12
-        total_interest = 0
+    if product_type == "예금":
+        # 예금: 일시납 방식
+        principal = monthly_amount * months  # 총 투자금액을 일시납으로 가정
         
-        for month in range(1, months + 1):
-            remaining_months = months - month + 1
-            compound_interest = monthly_amount * ((1 + monthly_rate) ** remaining_months - 1)
-            total_interest += compound_interest
+        if interest_type == "단리":
+            # 단리 계산: 원금 × 연이자율 × (기간/12)
+            total_interest = principal * (annual_rate / 100) * (months / 12)
+        else:
+            # 복리 계산: 원금 × ((1+연이자율)^(기간/12) - 1)
+            total_interest = principal * ((1 + annual_rate / 100) ** (months / 12) - 1)
+        
+        total_principal = principal
+        
+    else:
+        # 적금: 매월 적립 방식
+        total_principal = monthly_amount * months
+        
+        if interest_type == "단리":
+            # 단리 계산
+            total_interest = 0
+            for month in range(1, months + 1):
+                remaining_months = months - month + 1
+                simple_interest = monthly_amount * (annual_rate / 100) * (remaining_months / 12)
+                total_interest += simple_interest
+        else:
+            # 복리 계산 (표준 월복리 방식)
+            monthly_rate = annual_rate / 100 / 12
+            total_interest = 0
+            
+            for month in range(1, months + 1):
+                remaining_months = months - month + 1
+                compound_interest = monthly_amount * ((1 + monthly_rate) ** remaining_months - 1)
+                total_interest += compound_interest
     
     tax = total_interest * tax_rate
     after_tax_amount = total_principal + total_interest - tax
@@ -139,7 +155,8 @@ def calculate_after_tax_amount(monthly_amount, annual_rate, months=12, tax_rate=
         'tax': tax,
         'after_tax_amount': after_tax_amount,
         'net_interest': total_interest - tax,
-        'interest_type': interest_type
+        'interest_type': interest_type,
+        'product_type': product_type
     }
 
 def process_data(api_data, period_filter=None):
@@ -265,17 +282,28 @@ def main():
     bank_type_filter = st.session_state.bank_type_filter
     
     st.sidebar.subheader("💰 매월 저축 금액")
-    savings_amount = st.sidebar.number_input(
-        "매월 적립할 금액 (원)", 
-        min_value=1000, 
-        max_value=10000000, 
-        value=200000, 
-        step=10000,
-        format="%d"
-    )
-    
-    savings_amount_man = savings_amount // 10000
-    st.sidebar.write(f"💰 **{savings_amount_man}만원** / 월")
+    if product_type == "예금":
+        savings_amount = st.sidebar.number_input(
+            "예금할 총 금액 (원)", 
+            min_value=1000, 
+            max_value=100000000, 
+            value=2400000,  # 12개월 × 200,000원 
+            step=100000,
+            format="%d"
+        )
+        savings_amount_man = savings_amount // 10000
+        st.sidebar.write(f"💰 **{savings_amount_man}만원** 일시납")
+    else:
+        savings_amount = st.sidebar.number_input(
+            "매월 적립할 금액 (원)", 
+            min_value=1000, 
+            max_value=10000000, 
+            value=200000, 
+            step=10000,
+            format="%d"
+        )
+        savings_amount_man = savings_amount // 10000
+        st.sidebar.write(f"💰 **{savings_amount_man}만원** / 월")
     
     if 'selected_product' in st.session_state:
         selected = st.session_state.selected_product
@@ -287,12 +315,27 @@ def main():
         savings_period = period_map.get(period, 12)
         
         product_interest_type = selected.get('이자계산방법', '단리')  # 기본값을 '단리'로 설정
-        calc_result = calculate_after_tax_amount(
-            savings_amount, 
-            selected['최고금리_숫자'], 
-            savings_period, 
-            interest_type=product_interest_type
-        )
+        
+        # 예금의 경우 매월 적립 금액을 일시납 금액으로 조정
+        if product_type == "예금":
+            # 예금은 총 금액을 일시납으로 처리
+            deposit_amount = savings_amount  # 이미 총 금액으로 입력받음
+            calc_result = calculate_after_tax_amount(
+                deposit_amount, 
+                selected['최고금리_숫자'], 
+                savings_period, 
+                interest_type=product_interest_type,
+                product_type=product_type
+            )
+        else:
+            # 적금은 매월 적립 방식
+            calc_result = calculate_after_tax_amount(
+                savings_amount, 
+                selected['최고금리_숫자'], 
+                savings_period, 
+                interest_type=product_interest_type,
+                product_type=product_type
+            )
         
         st.sidebar.markdown(f"""
         <div style="
@@ -320,9 +363,12 @@ def main():
         st.sidebar.write(f"🔢 이자방식: {calc_result['interest_type']}")
         
         st.sidebar.write("---")
-        st.sidebar.write(f"**매월 적립**: {savings_amount_man}만원")
-        st.sidebar.write(f"**적립 기간**: {period} ({savings_period}개월)")
-        st.sidebar.write(f"**총 납입원금**: {calc_result['total_principal']:,.0f}원")
+        if product_type == "예금":
+            st.sidebar.write(f"**예금 금액**: {savings_amount_man}만원")
+        else:
+            st.sidebar.write(f"**매월 적립**: {savings_amount_man}만원")
+        st.sidebar.write(f"**가입 기간**: {period} ({savings_period}개월)")
+        st.sidebar.write(f"**총 원금**: {calc_result['total_principal']:,.0f}원")
         st.sidebar.success(f"**총 이자**: {calc_result['total_interest']:,.0f}원")
         st.sidebar.warning(f"**세금 (15.4%)**: {calc_result['tax']:,.0f}원")
         st.sidebar.success(f"**세후 이자**: {calc_result['net_interest']:,.0f}원")
