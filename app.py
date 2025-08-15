@@ -58,8 +58,7 @@ class FinanceAPI:
                     'pageNo': page
                 }
                 
-                # 재시도 로직 추가
-                for attempt in range(3):  # 최대 3번 시도
+                for attempt in range(3):
                     try:
                         response = requests.get(url, params=params, timeout=30)
                         if response.status_code == 200:
@@ -68,15 +67,15 @@ class FinanceAPI:
                                 all_products['result']['baseList'].extend(data['result']['baseList'])
                                 if data['result'].get('optionList'):
                                     all_products['result']['optionList'].extend(data['result']['optionList'])
-                                break  # 성공하면 재시도 루프 종료
+                                break
                             else:
-                                break  # 더 이상 데이터가 없으면 중단
+                                break
                         time.sleep(0.1)
-                    except requests.exceptions.RequestException as e:
-                        if attempt < 2:  # 마지막 시도가 아니면
-                            time.sleep(1)  # 1초 대기 후 재시도 (메시지 제거)
+                    except requests.exceptions.RequestException:
+                        if attempt < 2:
+                            time.sleep(1)
                         continue
-                    break  # 성공하면 재시도 루프 종료
+                    break
         
         return all_products if all_products['result']['baseList'] else None
     
@@ -93,8 +92,7 @@ class FinanceAPI:
                     'pageNo': page
                 }
                 
-                # 재시도 로직 추가
-                for attempt in range(3):  # 최대 3번 시도
+                for attempt in range(3):
                     try:
                         response = requests.get(url, params=params, timeout=30)
                         if response.status_code == 200:
@@ -103,58 +101,42 @@ class FinanceAPI:
                                 all_products['result']['baseList'].extend(data['result']['baseList'])
                                 if data['result'].get('optionList'):
                                     all_products['result']['optionList'].extend(data['result']['optionList'])
-                                break  # 성공하면 재시도 루프 종료
+                                break
                             else:
-                                break  # 더 이상 데이터가 없으면 중단
+                                break
                         time.sleep(0.1)
-                    except requests.exceptions.RequestException as e:
-                        if attempt < 2:  # 마지막 시도가 아니면
-                            time.sleep(1)  # 1초 대기 후 재시도 (메시지 제거)
+                    except requests.exceptions.RequestException:
+                        if attempt < 2:
+                            time.sleep(1)
                         continue
-                    break  # 성공하면 재시도 루프 종료
+                    break
         
         return all_products if all_products['result']['baseList'] else None
 
 def calculate_after_tax_amount(amount, annual_rate, months=12, tax_rate=0.154, interest_type="단리", product_type="적금"):
-    """세후 수령액 계산 - 적금/예금 구분하여 계산"""
+    total_principal = amount if product_type == "예금" else amount * months
     
-    # 명시적으로 단리를 기본값으로 처리
     if not interest_type or interest_type == "" or pd.isna(interest_type):
         interest_type = "단리"
     
     if product_type == "예금":
-        # 예금: 일시납 방식 (한번에 예치)
-        principal = amount  # 일시예치금액
-        
         if interest_type == "단리":
-            # 단리 계산: 원금 × 연이자율 × (기간/12)
-            total_interest = principal * (annual_rate / 100) * (months / 12)
+            total_interest = amount * (annual_rate / 100) * (months / 12)
         else:
-            # 복리 계산: 원금 × ((1+연이자율)^(기간/12) - 1)
-            total_interest = principal * ((1 + annual_rate / 100) ** (months / 12) - 1)
-        
-        total_principal = principal
-        
+            total_interest = amount * ((1 + annual_rate / 100) ** (months / 12) - 1)
     else:
-        # 적금: 매월 적립 방식
-        monthly_amount = amount
-        total_principal = monthly_amount * months
-        
         if interest_type == "단리":
-            # 단리 계산
             total_interest = 0
             for month in range(1, months + 1):
                 remaining_months = months - month + 1
-                simple_interest = monthly_amount * (annual_rate / 100) * (remaining_months / 12)
+                simple_interest = amount * (annual_rate / 100) * (remaining_months / 12)
                 total_interest += simple_interest
         else:
-            # 복리 계산 (표준 월복리 방식)
             monthly_rate = annual_rate / 100 / 12
             total_interest = 0
-            
             for month in range(1, months + 1):
                 remaining_months = months - month + 1
-                compound_interest = monthly_amount * ((1 + monthly_rate) ** remaining_months - 1)
+                compound_interest = amount * ((1 + monthly_rate) ** remaining_months - 1)
                 total_interest += compound_interest
     
     tax = total_interest * tax_rate
@@ -220,32 +202,24 @@ def process_data(api_data, period_filter=None):
         df_options = df_options[df_options['fin_prdt_cd'].isin(df_base['fin_prdt_cd'])]
         
         if not df_options.empty:
-            # 최고금리와 함께 저축기간 정보도 병합
-            # 먼저 최고금리에 해당하는 저축기간을 찾음
             max_rate_with_term = df_options.loc[df_options.groupby('fin_prdt_cd')['intr_rate2'].idxmax()]
-            
-            # 상품별 최고금리와 해당 저축기간 매핑
             product_info = max_rate_with_term[['fin_prdt_cd', 'intr_rate', 'intr_rate2', 'save_trm']].copy()
-            
             df_merged = df_base.merge(product_info, on='fin_prdt_cd', how='left')
         else:
             df_merged = df_base.copy()
             df_merged['intr_rate'] = 0
             df_merged['intr_rate2'] = 0
-            df_merged['save_trm'] = 12  # 기본값
+            df_merged['save_trm'] = 12
     else:
         df_merged = df_base.copy()
         df_merged['intr_rate'] = 0
         df_merged['intr_rate2'] = 0
-        df_merged['save_trm'] = 12  # 기본값
+        df_merged['save_trm'] = 12
     
-    # 이자계산방법 처리 - 명시적으로 단리를 기본값으로 설정
     interest_method_values = df_merged.get('intr_rate_type_nm', pd.Series(['단리'] * len(df_merged)))
-    # 빈 값이나 NaN을 단리로 대체
     interest_method_values = interest_method_values.fillna('단리')
     interest_method_values = interest_method_values.replace('', '단리')
     
-    # 저축기간 정보도 함께 저장 (예금 상품용)
     save_term_values = df_merged.get('save_trm', pd.Series([12] * len(df_merged)))
     
     result_df = pd.DataFrame({
@@ -256,8 +230,8 @@ def process_data(api_data, period_filter=None):
         '가입방법': df_merged.get('join_way', ''),
         '우대조건': df_merged.get('spcl_cnd', ''),
         '가입대상': df_merged.get('join_member', ''),
-        '이자계산방법': interest_method_values,  # 명시적으로 처리된 값 사용
-        'save_trm': save_term_values  # 저축기간 정보 추가
+        '이자계산방법': interest_method_values,
+        'save_trm': save_term_values
     })
     
     return result_df.sort_values('최고금리_숫자', ascending=False).reset_index(drop=True)
@@ -307,7 +281,7 @@ def main():
             "예금할 총 금액 (원)", 
             min_value=10000, 
             max_value=1000000000, 
-            value=1000000,  # 기본값 100만원
+            value=1000000,
             step=100000,
             format="%d",
             help="예: 1,000,000원 = 100만원"
@@ -328,6 +302,7 @@ def main():
         savings_amount_man = savings_amount // 10000
         st.sidebar.write(f"💰 **{savings_amount_man}만원** ({savings_amount:,}원) / 월")
     
+    # 선택된 상품의 수익 계산 표시 - 큰 녹색 박스 완전 제거
     if 'selected_product' in st.session_state:
         selected = st.session_state.selected_product
         
@@ -337,14 +312,10 @@ def main():
         }
         savings_period = period_map.get(period, 12)
         
-        product_interest_type = selected.get('이자계산방법', '단리')  # 기본값을 '단리'로 설정
+        product_interest_type = selected.get('이자계산방법', '단리')
         
-        # 예금의 경우 기간 정보 처리
         if product_type == "예금":
-            # 상품명에서 기간 정보 추출 시도
             product_name = selected.get('상품명', '')
-            
-            # 상품명에서 기간 정보 추출
             import re
             period_patterns = [
                 (r'(\d+)개월', lambda m: int(m.group(1))),
@@ -360,7 +331,6 @@ def main():
                     detected_months = converter(match)
                     break
             
-            # save_trm이 있으면 사용, 없으면 상품명에서 추출한 기간 사용
             actual_months = None
             if 'save_trm' in selected and selected['save_trm'] and not pd.isna(selected['save_trm']):
                 try:
@@ -374,32 +344,15 @@ def main():
             if actual_months:
                 savings_period = actual_months
         
-        # 상품의 이자계산방법에 맞는 계산
         calc_result = calculate_after_tax_amount(
-            savings_amount,  # 예금: 일시예치금, 적금: 월적립금
+            savings_amount,
             selected['최고금리_숫자'], 
             savings_period, 
             interest_type=product_interest_type,
             product_type=product_type
         )
         
-        st.sidebar.markdown(f"""
-        <div style="
-            background: linear-gradient(135deg, #4CAF50, #45a049);
-            padding: 20px;
-            border-radius: 15px;
-            text-align: center;
-            color: white;
-            margin: 15px 0;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-        ">
-            <h3 style="margin: 0; font-size: 18px;">💎 세후 수령액</h3>
-            <h1 style="margin: 10px 0; font-size: 28px; font-weight: bold;">
-                {calc_result['after_tax_amount']:,.0f}원
-            </h1>
-        </div>
-        """, unsafe_allow_html=True)
-        
+        # 상세 계산 정보를 바로 표시 (녹색 박스 없음)
         st.sidebar.subheader("💰 수익 계산")
         
         st.sidebar.info(f"**선택 상품**")
@@ -418,14 +371,31 @@ def main():
         st.sidebar.success(f"**총 이자**: {calc_result['total_interest']:,.0f}원")
         st.sidebar.warning(f"**세금 (15.4%)**: {calc_result['tax']:,.0f}원")
         st.sidebar.success(f"**세후 이자**: {calc_result['net_interest']:,.0f}원")
+        
+        # 작은 최종 수령액 박스
+        st.sidebar.markdown(f"""
+        <div style="
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            color: white;
+            margin: 10px 0;
+            border: 2px solid #45a049;
+        ">
+            <h3 style="margin: 0; font-size: 16px;">💎 최종 세후 수령액</h3>
+            <h2 style="margin: 5px 0; font-size: 24px; font-weight: bold;">
+                {calc_result['after_tax_amount']:,.0f}원
+            </h2>
+        </div>
+        """, unsafe_allow_html=True)
     
     if st.sidebar.button("📊 실시간 데이터 조회", type="primary"):
         st.session_state.refresh_data = True
-        # 캐시 완전 초기화
         for key in list(st.session_state.keys()):
             if key.startswith(('df_products', 'selected_product', 'last_')):
                 del st.session_state[key]
-        st.rerun()  # 강제 새로고침
+        st.rerun()
     
     finance_api = FinanceAPI(api_key)
     
