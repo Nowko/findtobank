@@ -230,6 +230,9 @@ def process_data(api_data, period_filter=None):
     interest_method_values = interest_method_values.fillna('단리')
     interest_method_values = interest_method_values.replace('', '단리')
     
+    # 저축기간 정보도 함께 저장 (예금 상품용)
+    save_term_values = df_merged.get('save_trm', pd.Series([12] * len(df_merged)))
+    
     result_df = pd.DataFrame({
         '금융기관': df_merged.get('kor_co_nm', ''),
         '상품명': df_merged.get('fin_prdt_nm', ''),
@@ -238,7 +241,8 @@ def process_data(api_data, period_filter=None):
         '가입방법': df_merged.get('join_way', ''),
         '우대조건': df_merged.get('spcl_cnd', ''),
         '가입대상': df_merged.get('join_member', ''),
-        '이자계산방법': interest_method_values  # 명시적으로 처리된 값 사용
+        '이자계산방법': interest_method_values,  # 명시적으로 처리된 값 사용
+        'save_trm': save_term_values  # 저축기간 정보 추가
     })
     
     return result_df.sort_values('최고금리_숫자', ascending=False).reset_index(drop=True)
