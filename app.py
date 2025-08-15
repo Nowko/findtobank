@@ -470,13 +470,17 @@ def main():
         end_idx = min(start_idx + items_per_page, total_items)
         page_data = filtered_df.iloc[start_idx:end_idx]
         
-        # 상품 목록 표시 - 열 간격 최적화
+        # 상품 목록 표시 - 열 간격 대폭 최적화
         for idx, row in page_data.iterrows():
-            col1, col2, col3 = st.columns([2.5, 1.5, 6])  # 기관명:금리:상세정보 = 2.5:1.5:6
+            col1, col2, col3 = st.columns([1.25, 0.75, 8])  # 기관명:금리:설명 = 1.25:0.75:8
             
             with col1:
                 st.write(f"🏛️ **{row['금융기관']}**")
-                st.markdown(f"<span style='color: #1f77b4; font-weight: bold; font-size: 14px;'>{row['상품명']}</span>", 
+                # 상품명을 더 컴팩트하게 표시
+                product_name = row['상품명']
+                if len(product_name) > 25:
+                    product_name = product_name[:25] + "..."
+                st.markdown(f"<span style='color: #1f77b4; font-weight: bold; font-size: 13px;'>{product_name}</span>", 
                            unsafe_allow_html=True)
             
             with col2:
@@ -485,31 +489,32 @@ def main():
                     st.session_state.selected_product = row
                     st.rerun()
                 
-                # 이자계산방식을 금리 버튼 아래 표시
+                # 이자계산방식을 더 작게 표시
                 interest_method = row.get('이자계산방법', '단리')
                 method_color = "#28a745" if interest_method == "복리" else "#6c757d"
-                st.markdown(f"<span style='color: {method_color}; font-weight: bold; font-size: 12px;'>🔢 {interest_method}</span>", 
+                st.markdown(f"<span style='color: {method_color}; font-weight: bold; font-size: 11px;'>{interest_method}</span>", 
                            unsafe_allow_html=True)
             
             with col3:
-                # 가입방법을 더 간단히 표시
-                join_way = row['가입방법'] if len(row['가입방법']) <= 20 else row['가입방법'][:20] + "..."
-                st.markdown(f"**📝 가입방법**: {join_way}")
-                
-                # 가입대상에 더 많은 공간 할당
-                join_member = row['가입대상']
-                if len(join_member) > 80:
-                    join_member = join_member[:80] + "..."
-                st.markdown(f"**👥 가입대상**: {join_member}")
-                
-                # 우대조건에 충분한 공간 할당
-                special_cond = row['우대조건']
-                if special_cond and special_cond.strip():
-                    if len(special_cond) > 100:
-                        special_cond = special_cond[:100] + "..."
-                    st.markdown(f"**🎁 우대조건**: {special_cond}")
-                else:
-                    st.markdown(f"**🎁 우대조건**: 해당없음")
+                # 스크롤 가능한 상세 정보 섹션
+                st.markdown(f"""
+                <div style="height: 120px; overflow-y: auto; padding: 10px; border: 1px solid #e0e0e0; border-radius: 5px; background-color: #fafafa;">
+                    <div style="margin-bottom: 8px;">
+                        <strong style="color: #1f77b4;">📝 가입방법:</strong><br>
+                        <span style="font-size: 13px; line-height: 1.4;">{row['가입방법']}</span>
+                    </div>
+                    
+                    <div style="margin-bottom: 8px;">
+                        <strong style="color: #28a745;">👥 가입대상:</strong><br>
+                        <span style="font-size: 13px; line-height: 1.4;">{row['가입대상']}</span>
+                    </div>
+                    
+                    <div style="margin-bottom: 8px;">
+                        <strong style="color: #ff6b35;">🎁 우대조건:</strong><br>
+                        <span style="font-size: 13px; line-height: 1.4;">{row['우대조건'] if row['우대조건'] and row['우대조건'].strip() else '해당없음'}</span>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
             
             st.divider()
         
