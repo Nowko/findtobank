@@ -58,20 +58,28 @@ class FinanceAPI:
                     'pageNo': page
                 }
                 
-                try:
-                    response = requests.get(url, params=params, timeout=30)
-                    if response.status_code == 200:
-                        data = response.json()
-                        if data.get('result') and data['result'].get('baseList'):
-                            all_products['result']['baseList'].extend(data['result']['baseList'])
-                            if data['result'].get('optionList'):
-                                all_products['result']['optionList'].extend(data['result']['optionList'])
+                # 재시도 로직 추가
+                for attempt in range(3):  # 최대 3번 시도
+                    try:
+                        response = requests.get(url, params=params, timeout=30)
+                        if response.status_code == 200:
+                            data = response.json()
+                            if data.get('result') and data['result'].get('baseList'):
+                                all_products['result']['baseList'].extend(data['result']['baseList'])
+                                if data['result'].get('optionList'):
+                                    all_products['result']['optionList'].extend(data['result']['optionList'])
+                                break  # 성공하면 재시도 루프 종료
+                            else:
+                                break  # 더 이상 데이터가 없으면 중단
+                        time.sleep(0.1)
+                    except requests.exceptions.RequestException as e:
+                        if attempt < 2:  # 마지막 시도가 아니면
+                            st.warning(f"기관유형 {org_type}, 페이지 {page} 재시도 중... ({attempt + 1}/3)")
+                            time.sleep(1)  # 1초 대기 후 재시도
                         else:
-                            break
-                    time.sleep(0.1)
-                except Exception as e:
-                    st.warning(f"기관유형 {org_type}, 페이지 {page} 조회 실패: {str(e)}")
-                    continue
+                            st.error(f"기관유형 {org_type}, 페이지 {page} 조회 실패: {str(e)}")
+                        continue
+                    break  # 성공하면 재시도 루프 종료
         
         return all_products if all_products['result']['baseList'] else None
     
@@ -88,20 +96,28 @@ class FinanceAPI:
                     'pageNo': page
                 }
                 
-                try:
-                    response = requests.get(url, params=params, timeout=30)
-                    if response.status_code == 200:
-                        data = response.json()
-                        if data.get('result') and data['result'].get('baseList'):
-                            all_products['result']['baseList'].extend(data['result']['baseList'])
-                            if data['result'].get('optionList'):
-                                all_products['result']['optionList'].extend(data['result']['optionList'])
+                # 재시도 로직 추가
+                for attempt in range(3):  # 최대 3번 시도
+                    try:
+                        response = requests.get(url, params=params, timeout=30)
+                        if response.status_code == 200:
+                            data = response.json()
+                            if data.get('result') and data['result'].get('baseList'):
+                                all_products['result']['baseList'].extend(data['result']['baseList'])
+                                if data['result'].get('optionList'):
+                                    all_products['result']['optionList'].extend(data['result']['optionList'])
+                                break  # 성공하면 재시도 루프 종료
+                            else:
+                                break  # 더 이상 데이터가 없으면 중단
+                        time.sleep(0.1)
+                    except requests.exceptions.RequestException as e:
+                        if attempt < 2:  # 마지막 시도가 아니면
+                            st.warning(f"기관유형 {org_type}, 페이지 {page} 재시도 중... ({attempt + 1}/3)")
+                            time.sleep(1)  # 1초 대기 후 재시도
                         else:
-                            break
-                    time.sleep(0.1)
-                except Exception as e:
-                    st.warning(f"기관유형 {org_type}, 페이지 {page} 조회 실패: {str(e)}")
-                    continue
+                            st.error(f"기관유형 {org_type}, 페이지 {page} 조회 실패: {str(e)}")
+                        continue
+                    break  # 성공하면 재시도 루프 종료
         
         return all_products if all_products['result']['baseList'] else None
 
@@ -386,18 +402,22 @@ def main():
         st.session_state.last_period = period
         
         with st.spinner(f"{product_type} 상품 데이터를 가져오는 중..."):
-            if product_type == "적금":
-                api_data = finance_api.get_saving_products()
-            else:
-                api_data = finance_api.get_deposit_products()
-            
-            if api_data:
-                st.markdown('<div class="api-success">✅ API 연결 성공!</div>', unsafe_allow_html=True)
-                df_products = process_data(api_data, period)
-                st.session_state.df_products = df_products
-                st.session_state.last_update = datetime.now()
-            else:
-                st.markdown('<div class="api-error">❌ API 호출 실패</div>', unsafe_allow_html=True)
+            try:
+                if product_type == "적금":
+                    api_data = finance_api.get_saving_products()
+                else:
+                    api_data = finance_api.get_deposit_products()
+                
+                if api_data and api_data.get('result') and api_data['result'].get('baseList'):
+                    st.markdown('<div class="api-success">✅ API 연결 성공!</div>', unsafe_allow_html=True)
+                    df_products = process_data(api_data, period)
+                    st.session_state.df_products = df_products
+                    st.session_state.last_update = datetime.now()
+                else:
+                    st.markdown('<div class="api-error">❌ API 데이터 없음 - 네트워크 상태를 확인하고 다시 시도해주세요.</div>', unsafe_allow_html=True)
+                    return
+            except Exception as e:
+                st.markdown(f'<div class="api-error">❌ API 호출 실패: {str(e)}<br>잠시 후 다시 시도해주세요.</div>', unsafe_allow_html=True)
                 return
     
     df_products = st.session_state.get('df_products', pd.DataFrame())
