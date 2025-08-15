@@ -307,12 +307,13 @@ def main():
             "예금할 총 금액 (원)", 
             min_value=10000, 
             max_value=1000000000, 
-            value=2400000,  # 기본값 240만원
+            value=1000000,  # 기본값 100만원
             step=100000,
-            format="%d"
+            format="%d",
+            help="예: 1,000,000원 = 100만원"
         )
         savings_amount_man = savings_amount // 10000
-        st.sidebar.write(f"💰 **{savings_amount_man}만원** 일시예치")
+        st.sidebar.write(f"💰 **{savings_amount_man}만원** ({savings_amount:,}원) 일시예치")
     else:
         st.sidebar.subheader("💰 매월 저축 금액")
         savings_amount = st.sidebar.number_input(
@@ -321,10 +322,11 @@ def main():
             max_value=10000000, 
             value=200000, 
             step=10000,
-            format="%d"
+            format="%d",
+            help="예: 200,000원 = 20만원"
         )
         savings_amount_man = savings_amount // 10000
-        st.sidebar.write(f"💰 **{savings_amount_man}만원** / 월")
+        st.sidebar.write(f"💰 **{savings_amount_man}만원** ({savings_amount:,}원) / 월")
     
     if 'selected_product' in st.session_state:
         selected = st.session_state.selected_product
