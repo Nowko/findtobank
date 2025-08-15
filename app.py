@@ -106,7 +106,12 @@ class FinanceAPI:
         return all_products if all_products['result']['baseList'] else None
 
 def calculate_after_tax_amount(monthly_amount, annual_rate, months=12, tax_rate=0.154, interest_type="단리", method="standard"):
+    """정기적금 세후 수령액 계산 - 기본값 단리"""
     total_principal = monthly_amount * months
+    
+    # 명시적으로 단리를 기본값으로 처리
+    if not interest_type or interest_type == "" or pd.isna(interest_type):
+        interest_type = "단리"
     
     if interest_type == "단리":
         total_interest = 0
@@ -211,6 +216,12 @@ def process_data(api_data, period_filter=None):
         df_merged['intr_rate'] = 0
         df_merged['intr_rate2'] = 0
     
+    # 이자계산방법 처리 - 명시적으로 단리를 기본값으로 설정
+    interest_method_values = df_merged.get('intr_rate_type_nm', pd.Series(['단리'] * len(df_merged)))
+    # 빈 값이나 NaN을 단리로 대체
+    interest_method_values = interest_method_values.fillna('단리')
+    interest_method_values = interest_method_values.replace('', '단리')
+    
     result_df = pd.DataFrame({
         '금융기관': df_merged.get('kor_co_nm', ''),
         '상품명': df_merged.get('fin_prdt_nm', ''),
@@ -219,7 +230,7 @@ def process_data(api_data, period_filter=None):
         '가입방법': df_merged.get('join_way', ''),
         '우대조건': df_merged.get('spcl_cnd', ''),
         '가입대상': df_merged.get('join_member', ''),
-        '이자계산방법': df_merged.get('intr_rate_type_nm', '단리')  # 기본값을 '단리'로 설정
+        '이자계산방법': interest_method_values  # 명시적으로 처리된 값 사용
     })
     
     return result_df.sort_values('최고금리_숫자', ascending=False).reset_index(drop=True)
@@ -338,6 +349,11 @@ def main():
     
     if st.sidebar.button("📊 실시간 데이터 조회", type="primary"):
         st.session_state.refresh_data = True
+        # 캐시 초기화
+        if 'df_products' in st.session_state:
+            del st.session_state['df_products']
+        if 'selected_product' in st.session_state:
+            del st.session_state['selected_product']
     
     finance_api = FinanceAPI(api_key)
     
