@@ -74,10 +74,7 @@ class FinanceAPI:
                         time.sleep(0.1)
                     except requests.exceptions.RequestException as e:
                         if attempt < 2:  # 마지막 시도가 아니면
-                            st.warning(f"기관유형 {org_type}, 페이지 {page} 재시도 중... ({attempt + 1}/3)")
-                            time.sleep(1)  # 1초 대기 후 재시도
-                        else:
-                            st.error(f"기관유형 {org_type}, 페이지 {page} 조회 실패: {str(e)}")
+                            time.sleep(1)  # 1초 대기 후 재시도 (메시지 제거)
                         continue
                     break  # 성공하면 재시도 루프 종료
         
@@ -112,10 +109,7 @@ class FinanceAPI:
                         time.sleep(0.1)
                     except requests.exceptions.RequestException as e:
                         if attempt < 2:  # 마지막 시도가 아니면
-                            st.warning(f"기관유형 {org_type}, 페이지 {page} 재시도 중... ({attempt + 1}/3)")
-                            time.sleep(1)  # 1초 대기 후 재시도
-                        else:
-                            st.error(f"기관유형 {org_type}, 페이지 {page} 조회 실패: {str(e)}")
+                            time.sleep(1)  # 1초 대기 후 재시도 (메시지 제거)
                         continue
                     break  # 성공하면 재시도 루프 종료
         
