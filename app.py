@@ -470,22 +470,22 @@ def main():
         end_idx = min(start_idx + items_per_page, total_items)
         page_data = filtered_df.iloc[start_idx:end_idx]
         
-        # 상품 목록 표시 - 열 간격 대폭 최적화
+        # 상품 목록 표시 - 컴팩트한 행 구성
         for idx, row in page_data.iterrows():
-            col1, col2 = st.columns([2, 8])  # 기관명:상세정보 = 2:8
+            col1, col2 = st.columns([2.5, 7.5])  # 기관명:상세정보 = 2.5:7.5
             
             with col1:
                 st.write(f"🏛️ **{row['금융기관']}**")
                 # 상품명을 더 컴팩트하게 표시
                 product_name = row['상품명']
-                if len(product_name) > 25:
-                    product_name = product_name[:25] + "..."
+                if len(product_name) > 30:
+                    product_name = product_name[:30] + "..."
                 st.markdown(f"<span style='color: #1f77b4; font-weight: bold; font-size: 13px;'>{product_name}</span>", 
                            unsafe_allow_html=True)
             
             with col2:
-                # 금리, 이자방식, 가입방법, 가입대상을 2x2로 배치
-                col_rate, col_target = st.columns(2)
+                # 금리, 가입방법, 가입대상을 한 줄에 배치
+                col_rate, col_method, col_target = st.columns([2, 2.5, 3])
                 
                 with col_rate:
                     # 금리 버튼
@@ -497,23 +497,24 @@ def main():
                     # 이자계산방식
                     interest_method = row.get('이자계산방법', '단리')
                     method_color = "#28a745" if interest_method == "복리" else "#6c757d"
-                    st.markdown(f"<span style='color: {method_color}; font-weight: bold; font-size: 12px;'>🔢 {interest_method}</span>", 
+                    st.markdown(f"<span style='color: {method_color}; font-weight: bold; font-size: 11px;'>🔢 {interest_method}</span>", 
                                unsafe_allow_html=True)
-                    
+                
+                with col_method:
                     # 가입방법
                     st.markdown("**📝 가입방법**")
                     join_way = row['가입방법']
-                    if len(join_way) > 15:
-                        join_way = join_way[:15] + "..."
-                    st.write(join_way)
+                    if len(join_way) > 12:
+                        join_way = join_way[:12] + "..."
+                    st.write(f"{join_way}")
                 
                 with col_target:
                     # 가입대상
                     st.markdown("**👥 가입대상**")
                     join_member = row['가입대상']
-                    if len(join_member) > 30:
-                        join_member = join_member[:30] + "..."
-                    st.write(join_member)
+                    if len(join_member) > 25:
+                        join_member = join_member[:25] + "..."
+                    st.write(f"{join_member}")
                 
                 # 우대조건은 전체 폭에서 expander로
                 with st.expander("🎁 우대조건 보기", expanded=False):
