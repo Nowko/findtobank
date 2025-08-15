@@ -496,25 +496,24 @@ def main():
                            unsafe_allow_html=True)
             
             with col3:
-                # 스크롤 가능한 상세 정보 섹션
-                st.markdown(f"""
-                <div style="height: 120px; overflow-y: auto; padding: 10px; border: 1px solid #e0e0e0; border-radius: 5px; background-color: #fafafa;">
-                    <div style="margin-bottom: 8px;">
-                        <strong style="color: #1f77b4;">📝 가입방법:</strong><br>
-                        <span style="font-size: 13px; line-height: 1.4;">{row['가입방법']}</span>
-                    </div>
+                # 상세 정보를 expander로 표시 (스크롤 대신)
+                with st.expander("📋 상세 정보", expanded=True):
+                    # 가입방법
+                    st.markdown("**📝 가입방법**")
+                    st.write(row['가입방법'])
                     
-                    <div style="margin-bottom: 8px;">
-                        <strong style="color: #28a745;">👥 가입대상:</strong><br>
-                        <span style="font-size: 13px; line-height: 1.4;">{row['가입대상']}</span>
-                    </div>
+                    st.markdown("---")
                     
-                    <div style="margin-bottom: 8px;">
-                        <strong style="color: #ff6b35;">🎁 우대조건:</strong><br>
-                        <span style="font-size: 13px; line-height: 1.4;">{row['우대조건'] if row['우대조건'] and row['우대조건'].strip() else '해당없음'}</span>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
+                    # 가입대상  
+                    st.markdown("**👥 가입대상**")
+                    st.write(row['가입대상'])
+                    
+                    st.markdown("---")
+                    
+                    # 우대조건
+                    st.markdown("**🎁 우대조건**")
+                    special_condition = row['우대조건'] if row['우대조건'] and row['우대조건'].strip() else '해당없음'
+                    st.write(special_condition)
             
             st.divider()
         
