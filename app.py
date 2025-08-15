@@ -470,17 +470,17 @@ def main():
         end_idx = min(start_idx + items_per_page, total_items)
         page_data = filtered_df.iloc[start_idx:end_idx]
         
-        # 상품 목록 표시 - 컴팩트한 행 구성
+        # 상품 목록 표시 - 첫 번째 열 축소
         for idx, row in page_data.iterrows():
-            col1, col2 = st.columns([2.5, 7.5])  # 기관명:상세정보 = 2.5:7.5
+            col1, col2 = st.columns([1.5, 8.5])  # 기관명:상세정보 = 1.5:8.5 (기존 2.5에서 60%로 축소)
             
             with col1:
                 st.write(f"🏛️ **{row['금융기관']}**")
-                # 상품명을 더 컴팩트하게 표시
+                # 상품명을 더 컴팩트하게 표시 (폭이 줄어든 만큼 텍스트도 단축)
                 product_name = row['상품명']
-                if len(product_name) > 30:
-                    product_name = product_name[:30] + "..."
-                st.markdown(f"<span style='color: #1f77b4; font-weight: bold; font-size: 13px;'>{product_name}</span>", 
+                if len(product_name) > 20:
+                    product_name = product_name[:20] + "..."
+                st.markdown(f"<span style='color: #1f77b4; font-weight: bold; font-size: 12px;'>{product_name}</span>", 
                            unsafe_allow_html=True)
             
             with col2:
