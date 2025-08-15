@@ -167,22 +167,28 @@ def process_data_cached(api_data_str, period_filter=None):
             df_merged = df_base.merge(product_info, on='fin_prdt_cd', how='left')
         else:
             df_merged = df_base.copy()
-            df_merged[['intr_rate', 'intr_rate2', 'save_trm']] = [0, 0, 12]
+            # 기본값 설정 시 Series로 생성
+            df_merged['intr_rate'] = pd.Series([0] * len(df_merged))
+            df_merged['intr_rate2'] = pd.Series([0] * len(df_merged))
+            df_merged['save_trm'] = pd.Series([12] * len(df_merged))
     else:
         df_merged = df_base.copy()
-        df_merged[['intr_rate', 'intr_rate2', 'save_trm']] = [0, 0, 12]
+        # 기본값 설정 시 Series로 생성
+        df_merged['intr_rate'] = pd.Series([0] * len(df_merged))
+        df_merged['intr_rate2'] = pd.Series([0] * len(df_merged))
+        df_merged['save_trm'] = pd.Series([12] * len(df_merged))
     
-    # 결과 데이터프레임 생성
+    # 결과 데이터프레임 생성 - fillna 오류 수정
     result_df = pd.DataFrame({
-        '금융기관': df_merged.get('kor_co_nm', '').fillna(''),
-        '상품명': df_merged.get('fin_prdt_nm', '').fillna(''),
-        '최고금리': df_merged.get('intr_rate2', 0).apply(lambda x: f"{float(x):.2f}%" if x else "0.00%"),
-        '최고금리_숫자': pd.to_numeric(df_merged.get('intr_rate2', 0), errors='coerce').fillna(0),
-        '가입방법': df_merged.get('join_way', '').fillna(''),
-        '우대조건': df_merged.get('spcl_cnd', '').fillna(''),
-        '가입대상': df_merged.get('join_member', '').fillna(''),
-        '이자계산방법': df_merged.get('intr_rate_type_nm', '단리').fillna('단리'),
-        'save_trm': df_merged.get('save_trm', 12).fillna(12)
+        '금융기관': df_merged.get('kor_co_nm', pd.Series([''] * len(df_merged))).fillna(''),
+        '상품명': df_merged.get('fin_prdt_nm', pd.Series([''] * len(df_merged))).fillna(''),
+        '최고금리': df_merged.get('intr_rate2', pd.Series([0] * len(df_merged))).apply(lambda x: f"{float(x):.2f}%" if x and x != 0 else "0.00%"),
+        '최고금리_숫자': pd.to_numeric(df_merged.get('intr_rate2', pd.Series([0] * len(df_merged))), errors='coerce').fillna(0),
+        '가입방법': df_merged.get('join_way', pd.Series([''] * len(df_merged))).fillna(''),
+        '우대조건': df_merged.get('spcl_cnd', pd.Series([''] * len(df_merged))).fillna(''),
+        '가입대상': df_merged.get('join_member', pd.Series([''] * len(df_merged))).fillna(''),
+        '이자계산방법': df_merged.get('intr_rate_type_nm', pd.Series(['단리'] * len(df_merged))).fillna('단리'),
+        'save_trm': pd.to_numeric(df_merged.get('save_trm', pd.Series([12] * len(df_merged))), errors='coerce').fillna(12)
     })
     
     return result_df.sort_values('최고금리_숫자', ascending=False).reset_index(drop=True)
