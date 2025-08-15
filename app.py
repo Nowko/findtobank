@@ -434,14 +434,12 @@ def main():
     with col4:
         last_update = st.session_state.get('last_update')
         if last_update:
-            # 이미 한국시간으로 저장된 시간 표시
             update_time = last_update.strftime("%H:%M")
         else:
-            # 현재 한국시간
-            utc_now = datetime.utcnow()
-            kst_now = utc_now + timedelta(hours=9)
-            update_time = kst_now.strftime("%H:%M")
-        st.metric("업데이트", f"{update_time} KST")
+            # 현재 시간을 그대로 사용 (서버 환경에 따라 자동 조정)
+            current_time = datetime.now()
+            update_time = current_time.strftime("%H:%M")
+        st.metric("업데이트", update_time)
     
     # 탭 구성
     tab1, tab2, tab3 = st.tabs(["📋 전체 상품", "🏆 TOP 10", "📊 분석"])
@@ -576,8 +574,11 @@ def main():
         distribution = df_products['금리구간'].value_counts()
         st.bar_chart(distribution)
     
-    # 성능 정보
+    # 성능 정보 및 시간 디버깅
     if st.sidebar.checkbox("성능 정보 표시"):
+        current_local = datetime.now()
+        current_utc = datetime.utcnow()
+        
         st.sidebar.info(f"""
         **최적화 적용**
         - ✅ 병렬 API 호출
@@ -587,6 +588,11 @@ def main():
         
         **로딩 시간**: ~3-5초
         **캐시 히트시**: ~1초 이내
+        
+        **시간 디버깅**
+        - 서버 로컬: {current_local.strftime("%H:%M:%S")}
+        - 서버 UTC: {current_utc.strftime("%H:%M:%S")}
+        - UTC+9: {(current_utc + timedelta(hours=9)).strftime("%H:%M:%S")}
         """)
 
 if __name__ == "__main__":
