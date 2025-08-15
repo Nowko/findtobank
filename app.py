@@ -295,20 +295,20 @@ def main():
     # 금융기관 유형 필터
     st.sidebar.subheader("🏛️ 금융기관 유형")
     
-    # 3개 버튼을 균등한 크기로 배치
+    # 텍스트 길이를 맞춰서 버튼 크기 균등화
     col1, col2, col3 = st.sidebar.columns(3)
     
     if 'bank_type_filter' not in st.session_state:
         st.session_state.bank_type_filter = None
     
     with col1:
-        if st.button("🏦\n전체", use_container_width=True, key="btn_all"):
+        if st.button("🏦 전체", use_container_width=True, key="btn_all"):
             st.session_state.bank_type_filter = None
     with col2:
-        if st.button("🏛️\n은행", use_container_width=True, key="btn_bank"):
+        if st.button("🏛️ 은행", use_container_width=True, key="btn_bank"):
             st.session_state.bank_type_filter = "은행"
     with col3:
-        if st.button("🏪\n저축은행", use_container_width=True, key="btn_savings"):
+        if st.button("🏪저축은행", use_container_width=True, key="btn_savings"):
             st.session_state.bank_type_filter = "저축은행"
     
     bank_type_filter = st.session_state.bank_type_filter
