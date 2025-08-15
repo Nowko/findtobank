@@ -432,13 +432,9 @@ def main():
         avg_rate = df_products['최고금리_숫자'].mean()
         st.metric("평균 금리", f"{avg_rate:.2f}%")
     with col4:
-        last_update = st.session_state.get('last_update')
-        if last_update:
-            update_time = last_update.strftime("%H:%M")
-        else:
-            # 현재 시간을 그대로 사용 (서버 환경에 따라 자동 조정)
-            current_time = datetime.now()
-            update_time = current_time.strftime("%H:%M")
+        # 항상 현재 시간을 표시 (실시간 업데이트)
+        current_time = datetime.now()
+        update_time = current_time.strftime("%H:%M")
         st.metric("업데이트", update_time)
     
     # 탭 구성
