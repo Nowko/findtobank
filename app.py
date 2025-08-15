@@ -6,7 +6,6 @@ from datetime import datetime, timedelta
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
-import pytz
 
 st.set_page_config(
     page_title="금융상품 비교센터",
@@ -435,17 +434,13 @@ def main():
     with col4:
         last_update = st.session_state.get('last_update')
         if last_update:
-            # 한국시간으로 표시
-            if hasattr(last_update, 'tzinfo') and last_update.tzinfo:
-                update_time = last_update.strftime("%H:%M")
-            else:
-                # 기존 datetime이 timezone 정보가 없는 경우 한국시간으로 변환
-                kst = pytz.timezone('Asia/Seoul')
-                last_update = kst.localize(last_update) if last_update.tzinfo is None else last_update.astimezone(kst)
-                update_time = last_update.strftime("%H:%M")
+            # 이미 한국시간으로 저장된 시간 표시
+            update_time = last_update.strftime("%H:%M")
         else:
-            kst = pytz.timezone('Asia/Seoul')
-            update_time = datetime.now(kst).strftime("%H:%M")
+            # 현재 한국시간
+            utc_now = datetime.utcnow()
+            kst_now = utc_now + timedelta(hours=9)
+            update_time = kst_now.strftime("%H:%M")
         st.metric("업데이트", f"{update_time} KST")
     
     # 탭 구성
