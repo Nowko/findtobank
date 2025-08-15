@@ -105,7 +105,7 @@ class FinanceAPI:
         
         return all_products if all_products['result']['baseList'] else None
 
-def calculate_after_tax_amount(monthly_amount, annual_rate, months=12, tax_rate=0.154, interest_type="단리", product_type="적금"):
+def calculate_after_tax_amount(amount, annual_rate, months=12, tax_rate=0.154, interest_type="단리", product_type="적금"):
     """세후 수령액 계산 - 적금/예금 구분하여 계산"""
     
     # 명시적으로 단리를 기본값으로 처리
@@ -113,8 +113,8 @@ def calculate_after_tax_amount(monthly_amount, annual_rate, months=12, tax_rate=
         interest_type = "단리"
     
     if product_type == "예금":
-        # 예금: 일시납 방식
-        principal = monthly_amount * months  # 총 투자금액을 일시납으로 가정
+        # 예금: 일시납 방식 (한번에 예치)
+        principal = amount  # 일시예치금액
         
         if interest_type == "단리":
             # 단리 계산: 원금 × 연이자율 × (기간/12)
@@ -127,6 +127,7 @@ def calculate_after_tax_amount(monthly_amount, annual_rate, months=12, tax_rate=
         
     else:
         # 적금: 매월 적립 방식
+        monthly_amount = amount
         total_principal = monthly_amount * months
         
         if interest_type == "단리":
@@ -281,19 +282,20 @@ def main():
     
     bank_type_filter = st.session_state.bank_type_filter
     
-    st.sidebar.subheader("💰 매월 저축 금액")
     if product_type == "예금":
+        st.sidebar.subheader("💰 일시 예치금")
         savings_amount = st.sidebar.number_input(
             "예금할 총 금액 (원)", 
-            min_value=1000, 
-            max_value=100000000, 
-            value=2400000,  # 12개월 × 200,000원 
+            min_value=10000, 
+            max_value=1000000000, 
+            value=2400000,  # 기본값 240만원
             step=100000,
             format="%d"
         )
         savings_amount_man = savings_amount // 10000
-        st.sidebar.write(f"💰 **{savings_amount_man}만원** 일시납")
+        st.sidebar.write(f"💰 **{savings_amount_man}만원** 일시예치")
     else:
+        st.sidebar.subheader("💰 매월 저축 금액")
         savings_amount = st.sidebar.number_input(
             "매월 적립할 금액 (원)", 
             min_value=1000, 
@@ -316,26 +318,14 @@ def main():
         
         product_interest_type = selected.get('이자계산방법', '단리')  # 기본값을 '단리'로 설정
         
-        # 예금의 경우 매월 적립 금액을 일시납 금액으로 조정
-        if product_type == "예금":
-            # 예금은 총 금액을 일시납으로 처리
-            deposit_amount = savings_amount  # 이미 총 금액으로 입력받음
-            calc_result = calculate_after_tax_amount(
-                deposit_amount, 
-                selected['최고금리_숫자'], 
-                savings_period, 
-                interest_type=product_interest_type,
-                product_type=product_type
-            )
-        else:
-            # 적금은 매월 적립 방식
-            calc_result = calculate_after_tax_amount(
-                savings_amount, 
-                selected['최고금리_숫자'], 
-                savings_period, 
-                interest_type=product_interest_type,
-                product_type=product_type
-            )
+        # 상품 타입에 맞는 계산
+        calc_result = calculate_after_tax_amount(
+            savings_amount,  # 예금: 일시예치금, 적금: 월적립금
+            selected['최고금리_숫자'], 
+            savings_period, 
+            interest_type=product_interest_type,
+            product_type=product_type
+        )
         
         st.sidebar.markdown(f"""
         <div style="
@@ -364,7 +354,7 @@ def main():
         
         st.sidebar.write("---")
         if product_type == "예금":
-            st.sidebar.write(f"**예금 금액**: {savings_amount_man}만원")
+            st.sidebar.write(f"**일시 예치**: {savings_amount_man}만원")
         else:
             st.sidebar.write(f"**매월 적립**: {savings_amount_man}만원")
         st.sidebar.write(f"**가입 기간**: {period} ({savings_period}개월)")
