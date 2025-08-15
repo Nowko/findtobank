@@ -354,13 +354,41 @@ def main():
         )
         
         st.sidebar.subheader("💰 수익 계산")
-        st.sidebar.info(f"**선택 상품**: {selected['금융기관']}")
+        
+        st.sidebar.info(f"**선택 상품**")
+        st.sidebar.write(f"🏛️ {selected['금융기관']}")
         st.sidebar.write(f"📊 {selected['상품명']}")
         st.sidebar.write(f"📈 연 금리: {selected['최고금리']}")
+        st.sidebar.write(f"🔢 이자방식: {calc_result['interest_type']}")
         
         st.sidebar.write("---")
+        if product_type == "예금":
+            st.sidebar.write(f"**일시 예치**: {savings_amount//10000}만원")
+        else:
+            st.sidebar.write(f"**매월 적립**: {savings_amount//10000}만원")
+        st.sidebar.write(f"**가입 기간**: {period} ({savings_period}개월)")
         st.sidebar.write(f"**총 원금**: {calc_result['total_principal']:,.0f}원")
-        st.sidebar.success(f"**세후 수령액**: {calc_result['after_tax_amount']:,.0f}원")
+        st.sidebar.success(f"**총 이자**: {calc_result['total_interest']:,.0f}원")
+        st.sidebar.warning(f"**세금 (15.4%)**: {calc_result['tax']:,.0f}원")
+        st.sidebar.success(f"**세후 이자**: {calc_result['net_interest']:,.0f}원")
+        
+        # 최종 수령액 박스
+        st.sidebar.markdown(f"""
+        <div style="
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            color: white;
+            margin: 10px 0;
+            border: 2px solid #45a049;
+        ">
+            <h3 style="margin: 0; font-size: 16px;">💎 최종 세후 수령액</h3>
+            <h2 style="margin: 5px 0; font-size: 24px; font-weight: bold;">
+                {calc_result['after_tax_amount']:,.0f}원
+            </h2>
+        </div>
+        """, unsafe_allow_html=True)
     
     # 캐시 상태 표시
     if st.sidebar.button("🔄 캐시 새로고침"):
