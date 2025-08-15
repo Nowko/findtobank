@@ -210,19 +210,23 @@ def process_data(api_data, period_filter=None):
         df_options = df_options[df_options['fin_prdt_cd'].isin(df_base['fin_prdt_cd'])]
         
         if not df_options.empty:
+            # 최고금리와 함께 저축기간 정보도 병합
             max_rates = df_options.groupby('fin_prdt_cd').agg({
                 'intr_rate': 'max',
-                'intr_rate2': 'max'
+                'intr_rate2': 'max',
+                'save_trm': 'first'  # 저축기간 정보도 함께 가져오기
             }).reset_index()
             df_merged = df_base.merge(max_rates, on='fin_prdt_cd', how='left')
         else:
             df_merged = df_base.copy()
             df_merged['intr_rate'] = 0
             df_merged['intr_rate2'] = 0
+            df_merged['save_trm'] = 12  # 기본값
     else:
         df_merged = df_base.copy()
         df_merged['intr_rate'] = 0
         df_merged['intr_rate2'] = 0
+        df_merged['save_trm'] = 12  # 기본값
     
     # 이자계산방법 처리 - 명시적으로 단리를 기본값으로 설정
     interest_method_values = df_merged.get('intr_rate_type_nm', pd.Series(['단리'] * len(df_merged)))
