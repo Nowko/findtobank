@@ -1,37 +1,34 @@
-def calculate_after_tax_amount(monthly_amount, annual_rate, months=12, tax_rate=0.154, method="standard"):
-    """정기적금 세후 수령액 계산 (매월 적립 방식)"""
+with tab2:
+        st.subheader("🏆 TOP 10 고금리 상품")
+        top10 = df_products.head(10)
+        
+        for idx, row in top10.iterrows():
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                st.write(f"**{idx+1}위. {row['금융기관']}**")
+                st.write(f"{row['상품명']}")
+                st.caption(f"{row['가입방법']} | {row['가입대상']}")
+            with col2:
+                st.metric("최고금리", row['최고금리'])
+            st.divider()
     
-    if method == "moneta_style":
-        # 모네타 유사 방식 (누적복리)
-        monthly_rate = annual_rate / 100 / 12
-        total_amount = 0
-        running_balance = 0
+    with tab3:
+        st.subheader("📊 금리 분석")
         
-        for month in range(1, months + 1):
-            # 매월 적립
-            running_balance += monthly_amount
-            
-            # 기존 잔액에 대한 이자 계산 (2개월째부터)
-            if month > 1:
-                running_balance = running_balance * (1 + monthly_rate)
+        # 금융기관별 최고금리
+        bank_rates = df_products.groupby('금융기관')['최고금리_숫자'].max().sort_values(ascending=False).head(10)
+        st.bar_chart(bank_rates)
         
-        # 마지막 달 이자 적용
-        total_amount = running_balance * (1 + monthly_rate)
-        total_principal = monthly_amount * months
-        total_interest = total_amount - total_principal
-        
-    else:
-        # 표준 월복리 방식 (기존 방식)
-        monthly_rate = annual_rate / 100 / 12
-        total_principal = monthly_amount * months
-        total_interest = 0
-        
-        # 매월 적립하는 정기적금 복리 계산
-        for month in range(1, months + 1):
-            # 각 월 적립금이 적립되어 있는 기간
-            remaining_months = months - month + 1
-            # 해당 월 적립금의 이자 (복리)
-            month_interestimport streamlit as st
+        # 금리 구간별 분포
+        st.subheader("금리 구간별 상품 분포")
+        bins = [0, 2, 3, 4, 5, 100]
+        labels = ['0-2%', '2-3%', '3-4%', '4-5%', '5% 이상']
+        df_products['금리구간'] = pd.cut(df_products['최고금리_숫자'], bins=bins, labels=labels)
+        distribution = df_products['금리구간'].value_counts()
+        st.bar_chart(distribution)
+
+if __name__ == "__main__":
+    main()import streamlit as st
 import pandas as pd
 import requests
 import json
@@ -152,18 +149,19 @@ class FinanceAPI:
 def calculate_after_tax_amount(monthly_amount, annual_rate, months=12, tax_rate=0.154, interest_type="복리", method="standard"):
     """정기적금 세후 수령액 계산 (매월 적립 방식) - 단리/복리 구분"""
     
+    total_principal = monthly_amount * months
+    
     # 상품의 이자계산방법에 따라 계산 방식 결정
     if interest_type == "단리":
         # 단리 계산
-        total_principal = monthly_amount * months
         total_interest = 0
         
         # 각 월 적립금의 단리 이자 계산
         for month in range(1, months + 1):
             remaining_months = months - month + 1
             # 단리: 원금 × 연이자율 × (기간/12)
-            month_interest = monthly_amount * (annual_rate / 100) * (remaining_months / 12)
-            total_interest += month_interest
+            simple_interest = monthly_amount * (annual_rate / 100) * (remaining_months / 12)
+            total_interest += simple_interest
             
     else:
         # 복리 계산 (기본값)
@@ -182,13 +180,11 @@ def calculate_after_tax_amount(monthly_amount, annual_rate, months=12, tax_rate=
             
             # 마지막 달 이자 적용
             total_amount = running_balance * (1 + monthly_rate)
-            total_principal = monthly_amount * months
             total_interest = total_amount - total_principal
             
         else:
             # 표준 월복리 방식 (기존 방식)
             monthly_rate = annual_rate / 100 / 12
-            total_principal = monthly_amount * months
             total_interest = 0
             
             # 매월 적립하는 정기적금 복리 계산
@@ -196,9 +192,8 @@ def calculate_after_tax_amount(monthly_amount, annual_rate, months=12, tax_rate=
                 # 각 월 적립금이 적립되어 있는 기간
                 remaining_months = months - month + 1
                 # 해당 월 적립금의 이자 (복리)
-                month_interest = monthly_amount * ((1 + monthly_rate) ** remaining_months - 1)
-                total_interest += month_interest = monthly_amount * ((1 + monthly_rate) ** remaining_months - 1)
-                total_interest += month_interest
+                compound_interest = monthly_amount * ((1 + monthly_rate) ** remaining_months - 1)
+                total_interest += compound_interest
     
     # 세금 계산 (이자소득세 15.4%)
     tax = total_interest * tax_rate
@@ -622,35 +617,3 @@ def main():
                         st.rerun()
                 else:
                     st.button("다음 ▶", disabled=True)
-    
-    with tab2:
-        st.subheader("🏆 TOP 10 고금리 상품")
-        top10 = df_products.head(10)
-        
-        for idx, row in top10.iterrows():
-            col1, col2 = st.columns([3, 1])
-            with col1:
-                st.write(f"**{idx+1}위. {row['금융기관']}**")
-                st.write(f"{row['상품명']}")
-                st.caption(f"{row['가입방법']} | {row['가입대상']}")
-            with col2:
-                st.metric("최고금리", row['최고금리'])
-            st.divider()
-    
-    with tab3:
-        st.subheader("📊 금리 분석")
-        
-        # 금융기관별 최고금리
-        bank_rates = df_products.groupby('금융기관')['최고금리_숫자'].max().sort_values(ascending=False).head(10)
-        st.bar_chart(bank_rates)
-        
-        # 금리 구간별 분포
-        st.subheader("금리 구간별 상품 분포")
-        bins = [0, 2, 3, 4, 5, 100]
-        labels = ['0-2%', '2-3%', '3-4%', '4-5%', '5% 이상']
-        df_products['금리구간'] = pd.cut(df_products['최고금리_숫자'], bins=bins, labels=labels)
-        distribution = df_products['금리구간'].value_counts()
-        st.bar_chart(distribution)
-
-if __name__ == "__main__":
-    main()
