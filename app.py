@@ -330,7 +330,7 @@ def main():
             "매월 적립할 금액 (원)", 
             min_value=1000, 
             max_value=10000000, 
-            value=200000, 
+            value=1000000, 
             step=10000,
             format="%d"
         )
